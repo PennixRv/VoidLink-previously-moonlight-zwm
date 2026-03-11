@@ -60,8 +60,6 @@ static inline short clampCGFloatToShort(CGFloat value) {
 
     // Touch surface (indirect) pan: mouse move
     remotePanRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(remoteTouchpadPanned:)];
-    remotePanRecognizer.minimumNumberOfTouches = 1;
-    remotePanRecognizer.maximumNumberOfTouches = 1;
     remotePanRecognizer.cancelsTouchesInView = NO;
     [inputView addGestureRecognizer:remotePanRecognizer];
 

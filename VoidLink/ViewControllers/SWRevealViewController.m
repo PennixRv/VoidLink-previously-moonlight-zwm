@@ -33,6 +33,16 @@
 #import "LocalizationHelper.h"
 #import "VoidLink-Swift.h"
 
+#if TARGET_OS_TV
+
+// SWRevealViewController is an iOS-centric side-menu controller. The tvOS build uses a
+// different navigation model (Focus Engine + remote-driven UI), so we compile an empty
+// implementation to avoid pulling in iOS-only APIs (status bar, orientation, etc).
+@implementation SWRevealViewController
+@end
+
+#else
+
 
 #pragma mark - StatusBar Helper Function
 
@@ -2329,7 +2339,6 @@ const int FrontViewPositionNone = 0xff;
 
 @end
 
-
 #pragma mark - UIViewController(SWRevealViewController) Category
 
 @implementation UIViewController(SWRevealViewController)
@@ -2398,6 +2407,8 @@ NSString * const SWSegueRightIdentifier = @"sw_right";
 }
 
 @end
+
+#endif
 
 
 //#pragma mark - SWRevealViewControllerSegue Class
