@@ -1295,6 +1295,10 @@ static float L3_Y;
 }
 
 - (void)oscButtonHapticFeedback:(CALayer* )button{
+#if TARGET_OS_TV
+    (void)button;
+    return;
+#else
     if([button.name isEqualToString:@"upButton"]
        || [button.name isEqualToString:@"downButton"]
        || [button.name isEqualToString:@"leftButton"]
@@ -1319,6 +1323,7 @@ static float L3_Y;
         #endif
         // NSLog(@"vibration instance: %@",vibrationGenerator);
     }
+#endif
 }
 
 // osc Button capturing here

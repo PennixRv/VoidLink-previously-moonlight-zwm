@@ -36,8 +36,6 @@ const double NAV_BAR_HEIGHT = 50;
 
 @end
 
-#endif
-
 @implementation OSCProfilesTableViewController {
     OSCProfilesManager *profilesManager;
 }
@@ -482,3 +480,5 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 @end
+
+#endif
