@@ -565,7 +565,15 @@
 }
 
 #if TARGET_OS_TV
-- (void)controllerPauseButtonPressed:(id)sender { }
+- (void)controllerPauseButtonPressed:(id)sender {
+    (void)sender;
+    // Map the MENU button to a right-click. Double-press MENU exits the stream.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^{
+        LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
+        usleep(50 * 1000);
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
+    });
+}
 - (void)controllerPauseButtonDoublePressed:(id)sender {
     Log(LOG_I, @"Menu double-pressed -- backing out of stream");
     [self returnToMainFrame];
@@ -660,7 +668,9 @@
     //[_streamView setupStreamView:_controllerSupport interactionDelegate:self config:self.streamConfig];
     [self reConfigStreamViewRealtime]; // call this method again to make sure all gestures are configured & added to the superview(self.view), including the gestures added from inside the streamview.
     
+#if !TARGET_OS_TV
     if([self isFirstStreaming]) [self popFirstStreamingTip];
+#endif
 
 #if TARGET_OS_TV
     if (!_menuTapGestureRecognizer || !_menuDoubleTapGestureRecognizer || !_playPauseTapGestureRecognizer) {
@@ -689,7 +699,7 @@
     [_tipLabel setUserInteractionEnabled:NO];
     
 #if TARGET_OS_TV
-    [_tipLabel setText:@"Tip: Tap the Play/Pause button on the Apple TV Remote to disconnect from your PC"];
+    [_tipLabel setText:@"Tip: Press Play/Pause to disconnect. Press Menu for right-click. Double-press Menu to exit."];
 #else
     // [_tipLabel setText:[LocalizationHelper localizedStringForKey:@"Tip: Swipe from screen edge to a certiain distance (configured by Swipe & Exit settings) to disconnect from your PC"]];
 #endif

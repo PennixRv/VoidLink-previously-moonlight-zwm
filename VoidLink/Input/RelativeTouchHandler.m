@@ -10,9 +10,141 @@
 #import "DataManager.h"
 
 #include <Limelight.h>
+#include <limits.h>
 
 
 static const float QUICK_TAP_TIME_INTERVAL = 0.2;
+
+#if TARGET_OS_TV
+
+// tvOS interaction model differs from iOS:
+// - No direct touchscreen input
+// - Primary input is the Apple TV Remote (touch surface + click/press buttons)
+//
+// Here we translate remote gestures into mouse events for the host:
+// - Pan on touch surface: relative mouse movement
+// - Click (Select): left click
+// - Long-press (Select): left click and hold (drag)
+@implementation RelativeTouchHandler {
+    __weak StreamView* streamView;
+    TemporarySettings* currentSettings;
+
+    UIPanGestureRecognizer* remotePanRecognizer;
+    UITapGestureRecognizer* remoteSelectTapRecognizer;
+    UILongPressGestureRecognizer* remoteSelectHoldRecognizer;
+
+    BOOL leftButtonHeld;
+}
+
+static inline short clampCGFloatToShort(CGFloat value) {
+    if (value > SHRT_MAX) return SHRT_MAX;
+    if (value < SHRT_MIN) return SHRT_MIN;
+    return (short)value;
+}
+
+- (UIView *)remoteInputView {
+    return self->streamView.streamFrameTopLayerView ?: (UIView *)self->streamView;
+}
+
+- (id)initWithView:(StreamView*)view andSettings:(TemporarySettings*)settings {
+    self = [super init];
+    if (!self) {
+        return nil;
+    }
+
+    self->streamView = view;
+    self->currentSettings = settings;
+    self->leftButtonHeld = NO;
+
+    UIView *inputView = [self remoteInputView];
+
+    // Touch surface (indirect) pan: mouse move
+    remotePanRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(remoteTouchpadPanned:)];
+    remotePanRecognizer.minimumNumberOfTouches = 1;
+    remotePanRecognizer.maximumNumberOfTouches = 1;
+    remotePanRecognizer.cancelsTouchesInView = NO;
+    [inputView addGestureRecognizer:remotePanRecognizer];
+
+    // Select click: left click
+    remoteSelectTapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(remoteSelectClicked:)];
+    remoteSelectTapRecognizer.allowedPressTypes = @[@(UIPressTypeSelect)];
+    [inputView addGestureRecognizer:remoteSelectTapRecognizer];
+
+    // Select long-press: left click and hold (drag)
+    remoteSelectHoldRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(remoteSelectHeld:)];
+    remoteSelectHoldRecognizer.allowedPressTypes = @[@(UIPressTypeSelect)];
+    remoteSelectHoldRecognizer.minimumPressDuration = 0.35;
+    remoteSelectHoldRecognizer.cancelsTouchesInView = NO;
+    [inputView addGestureRecognizer:remoteSelectHoldRecognizer];
+    [remoteSelectTapRecognizer requireGestureRecognizerToFail:remoteSelectHoldRecognizer];
+
+    return self;
+}
+
+- (void)remoteTouchpadPanned:(UIPanGestureRecognizer *)recognizer {
+    UIView *inputView = [self remoteInputView];
+    CGPoint translation = [recognizer translationInView:inputView];
+    [recognizer setTranslation:CGPointZero inView:inputView];
+
+    // Scale motion using the existing "Touch Pointer Velocity" setting where possible.
+    CGFloat velocityFactor = self->currentSettings.touchPointerVelocityFactor != nil ? self->currentSettings.touchPointerVelocityFactor.floatValue : 1.0f;
+    if (velocityFactor <= 0.0f) {
+        velocityFactor = 1.0f;
+    }
+
+    short dx = clampCGFloatToShort(translation.x * velocityFactor);
+    short dy = clampCGFloatToShort(translation.y * velocityFactor);
+
+    if (dx != 0 || dy != 0) {
+        LiSendMouseMoveEvent(dx, dy);
+    }
+
+    if (recognizer.state == UIGestureRecognizerStateCancelled ||
+        recognizer.state == UIGestureRecognizerStateFailed ||
+        recognizer.state == UIGestureRecognizerStateEnded) {
+        [recognizer setTranslation:CGPointZero inView:inputView];
+    }
+}
+
+- (void)remoteSelectClicked:(UITapGestureRecognizer *)recognizer {
+    (void)recognizer;
+
+    // Don't synthesize an extra click if we are currently holding for drag.
+    if (self->leftButtonHeld) {
+        return;
+    }
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^{
+        LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
+        usleep(50 * 1000);
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+    });
+}
+
+- (void)remoteSelectHeld:(UILongPressGestureRecognizer *)recognizer {
+    switch (recognizer.state) {
+        case UIGestureRecognizerStateBegan:
+            if (!self->leftButtonHeld) {
+                self->leftButtonHeld = YES;
+                LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_LEFT);
+            }
+            break;
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateFailed:
+        case UIGestureRecognizerStateEnded:
+            if (self->leftButtonHeld) {
+                self->leftButtonHeld = NO;
+                LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_LEFT);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+@end
+
+#else
 
 @implementation RelativeTouchHandler {
     TemporarySettings* currentSettings;
@@ -310,3 +442,5 @@ static const float QUICK_TAP_TIME_INTERVAL = 0.2;
 #endif
 
 @end
+
+#endif

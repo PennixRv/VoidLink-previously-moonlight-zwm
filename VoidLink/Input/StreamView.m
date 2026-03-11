@@ -121,9 +121,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     // [self->streamFrameTopLayerView addGestureRecognizer:keyboardToggleRecognizer]; //add to the superview in other modes
     
 #if TARGET_OS_TV
-    // tvOS build: keep StreamView as a container for video rendering but disable
-    // touch-based input paths (remote "presses" are handled in StreamFrameViewController).
-    self->touchHandler = nil;
+    // tvOS: map Apple TV Remote (touch surface + select/menu) to mouse events.
+    // Input is handled via gesture recognizers in RelativeTouchHandler (tvOS implementation).
+    self->touchHandler = [[RelativeTouchHandler alloc] initWithView:self andSettings:settings];
 #else
     
     PencilHandler.shared = [[PencilHandler alloc] initWithStreamView:self settings:settings];
