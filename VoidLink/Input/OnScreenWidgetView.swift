@@ -1791,7 +1791,9 @@ import UIKit
         self.tickFlag = 0
         super.touchesBegan(touches, with: event)
         
+        #if !os(tvOS)
         self.isMultipleTouchEnabled = self.widgetType == WidgetTypeEnum.button || CommandManager.mousePadWithButtonActions.contains(self.touchPadString);
+        #endif
 
         if !OnScreenWidgetView.editMode && self.touchPadString == "TRACKBALL" {
             stopTrackballMomentum()

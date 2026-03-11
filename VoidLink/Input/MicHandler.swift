@@ -70,6 +70,17 @@ public class MicHandler: NSObject {
     
     
     /* ----------- Mic permission -------------*/
+    #if os(tvOS)
+    /// tvOS doesn't provide app microphone capture permission APIs. VoidLink's tvOS build
+    /// keeps the surface area for shared code but always reports "not granted".
+    @objc static func requestPermission(_ completion: ((Bool) -> Void)? = nil) {
+        completion?(false)
+    }
+
+    @objc static func openSettings() {}
+
+    @objc static func permissionGranted() -> Bool { false }
+    #else
     /// 请求麦克风权限
     /// - Parameter completion: 可选 block，如果为 nil 且未授权，会弹窗提示跳转系统设置
     @objc static func requestPermission(_ completion: ((Bool) -> Void)? = nil) {
@@ -146,6 +157,7 @@ public class MicHandler: NSObject {
         }
         return base
     }
+    #endif
     /* ----------------------------------------*/
 
     

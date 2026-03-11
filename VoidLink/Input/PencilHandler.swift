@@ -19,6 +19,7 @@ import UIKit
 
     @objc static var hoverSupported: Bool = false
     @objc static private(set) var hoverMode: PencilHoverMode = .HoverDisabled
+    @objc public private(set) var pencilProEnabled: Bool = false
     @objc static private(set) var isDrawing: Bool = false
     @objc static private(set) var pencilPausesNativeTouch: Bool = false
 

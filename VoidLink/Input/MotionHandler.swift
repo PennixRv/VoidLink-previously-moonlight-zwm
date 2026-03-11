@@ -46,6 +46,8 @@ import CoreMotion
     @objc public var gyroBiasY: Double = 0
     @objc public var gyroBiasZ: Double = 0
     @objc public var gyroToStickMinOffset: Double = 0
+    public var gyroStarter: Any?
+    public var gyroToStickOffset: CGVector = CGVector(dx: 0, dy: 0)
 
     // MARK: - OnScreenWidgetStickMixedInputDelegate
 
@@ -57,6 +59,8 @@ import CoreMotion
 
     @objc public func mixPhysicalRightStickAndGyroInput(x: CGFloat, y: CGFloat) {}
     @objc public func mixPhysicalLeftStickAndGyroInput(x: CGFloat, y: CGFloat) {}
+
+    public func startGyroByOnScreenButton(_ sender: OnScreenWidgetView, yawFactor: CGFloat, pitchFactor: CGFloat, rollFactor: CGFloat) {}
 
     @objc public func startGyroByControllerButton() {}
     @objc public func startGyroUpdate() {}

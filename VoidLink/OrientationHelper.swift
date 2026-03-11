@@ -8,6 +8,7 @@
 
 
 // this is just a test code in swift, methods here not being called by anyone yet.
+#if !os(tvOS)
 import Foundation
 
 import UIKit
@@ -42,3 +43,5 @@ import UIKit
         }
     }
 }
+
+#endif
