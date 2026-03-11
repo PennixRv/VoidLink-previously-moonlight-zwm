@@ -28,11 +28,13 @@ import SwiftUI
             hostingVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
 
+        #if !os(tvOS)
         // 🎯 设置弹窗大小
         preferredContentSize = CGSize(width: 530, height: 430)
 
         // ⚠️ 一定要设置以下样式才会生效 preferredContentSize
         modalPresentationStyle = .formSheet
+        #endif
     }
 }
 
