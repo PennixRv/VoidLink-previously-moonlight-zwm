@@ -497,6 +497,16 @@
     TouchPadGestureHandler.displayLinkRate = _settings.framerate.intValue;
 #endif
 
+#if TARGET_OS_TV
+    // Re-install tvOS press handlers removed by the reconfiguration step above.
+    [self tvosInstallPressGestureRecognizers];
+
+    // Keep the Menu overlay above debug layers after we rebuild the view hierarchy.
+    if (_tvosActionOverlay != nil && _tvosActionOverlay.superview == self.view) {
+        [self.view bringSubviewToFront:_tvosActionOverlay];
+    }
+#endif
+
     NSLog(@"frameview gestures: %d", (uint32_t)[self.view.gestureRecognizers count]);
     NSLog(@"streamview gestures: %d", (uint32_t)[_streamView.gestureRecognizers count]);
 }
@@ -670,6 +680,11 @@
         return;
     }
 
+    // Keep the action overlay above ImGui/stats layers.
+    if (_tvosActionOverlay.superview == self.view) {
+        [self.view bringSubviewToFront:_tvosActionOverlay];
+    }
+
     _tvosActionOverlay.hidden = NO;
     [UIView animateWithDuration:0.18 animations:^{
         self->_tvosActionOverlay.alpha = 1.0;
@@ -708,6 +723,24 @@
         return @[_tvosResumeButton];
     }
     return [super preferredFocusEnvironments];
+}
+
+- (void)tvosInstallPressGestureRecognizers {
+    if (_menuTapGestureRecognizer == nil) {
+        _menuTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPauseButtonPressed:)];
+        _menuTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypeMenu)];
+    }
+    if (_playPauseTapGestureRecognizer == nil) {
+        _playPauseTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPlayPauseButtonPressed:)];
+        _playPauseTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypePlayPause)];
+    }
+
+    if (_menuTapGestureRecognizer.view != self.view) {
+        [self.view addGestureRecognizer:_menuTapGestureRecognizer];
+    }
+    if (_playPauseTapGestureRecognizer.view != self.view) {
+        [self.view addGestureRecognizer:_playPauseTapGestureRecognizer];
+    }
 }
 
 - (void)controllerPauseButtonPressed:(id)sender {
@@ -820,16 +853,7 @@
 #endif
 
 #if TARGET_OS_TV
-    if (!_menuTapGestureRecognizer || !_playPauseTapGestureRecognizer) {
-        _menuTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPauseButtonPressed:)];
-        _menuTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypeMenu)];
-
-        _playPauseTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPlayPauseButtonPressed:)];
-        _playPauseTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypePlayPause)];
-    }
-    
-    [self.view addGestureRecognizer:_menuTapGestureRecognizer];
-    [self.view addGestureRecognizer:_playPauseTapGestureRecognizer];
+    [self tvosInstallPressGestureRecognizers];
 
 #else
     //[self configSwipeGestures]; // swipe & exit gesture configured here
