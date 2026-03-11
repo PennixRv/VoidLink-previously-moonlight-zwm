@@ -61,7 +61,9 @@ static NSSet *validPositionButtonNames;
     NSDate* l3TouchStart;
     NSDate* r3TouchStart;
     
+    #if !TARGET_OS_TV
     UIImpactFeedbackGenerator* vibrationGenerator;
+    #endif
     
     BOOL l3Set;
     BOOL r3Set;
@@ -1310,9 +1312,11 @@ static float L3_Y;
     // NSLog(@"vibration on: %d",vibraiontOn);
 
     if(vibraiontOn){
+        #if !TARGET_OS_TV
         vibrationGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:vibrationStyle];
         [vibrationGenerator prepare];
         [vibrationGenerator impactOccurred];
+        #endif
         // NSLog(@"vibration instance: %@",vibrationGenerator);
     }
 }

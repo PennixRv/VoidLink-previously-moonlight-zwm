@@ -121,7 +121,12 @@ import UIKit
     
     private let appWindow: UIView
     
+    #if os(tvOS)
+    // tvOS doesn't expose UIKit haptics APIs; keep the setting surface but no-op at runtime.
+    private var vibrationGenerator: Any? = nil
+    #else
     private var vibrationGenerator = UIImpactFeedbackGenerator(style: .light)
+    #endif
     private var vibrationOn: Bool = false
     
     private var inertialScroller:InertialScroller
@@ -503,20 +508,28 @@ import UIKit
     }
 
     @objc public func setVibration(style: Int) {
+        #if os(tvOS)
+        vibrationOn = false
+        vibrationStyle = style
+        #else
         if #available(iOS 13.0, *) {
             vibrationOn = style < UIImpactFeedbackGenerator.FeedbackStyle.rigid.rawValue + 1
         } else {
             vibrationOn = style < UIImpactFeedbackGenerator.FeedbackStyle.heavy.rawValue + 1
-        };
-        vibrationStyle = style;
+        }
+
+        vibrationStyle = style
+
         if #available(iOS 13.0, *) {
             print("rigid value \(UIImpactFeedbackGenerator.FeedbackStyle.rigid.rawValue)")
-        } else {
-            // Fallback on earlier versions
-        };
-        if vibrationOn {
-            vibrationGenerator = UIImpactFeedbackGenerator(style: UIImpactFeedbackGenerator.FeedbackStyle(rawValue: style) ?? UIImpactFeedbackGenerator.FeedbackStyle.light)
         }
+
+        if vibrationOn {
+            vibrationGenerator = UIImpactFeedbackGenerator(
+                style: UIImpactFeedbackGenerator.FeedbackStyle(rawValue: style) ?? .light
+            )
+        }
+        #endif
     }
     
     @objc public func setLocation(position: CGPoint) {
@@ -947,10 +960,12 @@ import UIKit
             CATransaction.commit()
         }
         
+        #if !os(tvOS)
         if vibrationOn {
             vibrationGenerator.prepare()
             vibrationGenerator.impactOccurred()
         }
+        #endif
     }
     
     
@@ -1275,10 +1290,12 @@ import UIKit
 
         if indicatorLayer.isHidden {
             indicatorLayer.isHidden = false
+            #if !os(tvOS)
             if vibrationOn {
                 vibrationGenerator.prepare()
                 vibrationGenerator.impactOccurred()
             }
+            #endif
         }
     }
 
@@ -1491,10 +1508,12 @@ import UIKit
         
         self.buttonDownVisualEffect()
         
+        #if !os(tvOS)
         if vibrationOn {
             vibrationGenerator.prepare()
             vibrationGenerator.impactOccurred()
         }
+        #endif
     }
     
     private func buttonDownVisualEffect(){
