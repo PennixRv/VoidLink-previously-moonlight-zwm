@@ -28,6 +28,32 @@
 
 static int mouseButtonForCursorMove = BUTTON_LEFT;
 
+#if TARGET_OS_TV
+// tvOS doesn't use absolute touch. Keep a minimal implementation so the tvOS target
+// can compile/link when this source file is included in the target.
+@implementation AbsoluteTouchHandler
+
++ (int)mouseButtonForCursorMove {
+    return mouseButtonForCursorMove;
+}
+
++ (void)setMouseButtonForCursorMove:(int)value {
+    mouseButtonForCursorMove = value;
+}
+
+- (id)initWithView:(StreamView*)view andSettings:(TemporarySettings*)settings {
+    (void)view;
+    (void)settings;
+    return [super init];
+}
+
+- (void)pauseLeftButtonDrag {
+}
+
+@end
+
+#else
+
 @implementation AbsoluteTouchHandler {
     __weak StreamView* streamView;
     
@@ -298,3 +324,4 @@ static int mouseButtonForCursorMove = BUTTON_LEFT;
 
 @end
 
+#endif
