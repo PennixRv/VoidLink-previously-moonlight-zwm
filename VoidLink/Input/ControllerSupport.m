@@ -178,8 +178,8 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
         for(NSNumber* motionTypeObj in voidController.motionTypes){
             uint8_t motionType = motionTypeObj.intValue;
 
-#if !TARGET_OS_TV //tvOS has no device motion
             if(voidController == _oscController){
+#if !TARGET_OS_TV // tvOS has no device motion
                 //Player has no controller *or* no motion for controller 1 *or* wants to override controller 1 motion with device motion
                 if(!voidController.motionManager) {
                     voidController.motionManager = [[CMMotionManager alloc] init];
@@ -324,9 +324,8 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
                         }];
                         break;
                 }
-            }
-            
 #endif
+            }
             else{
                 NSLog(@"controller obj timer update: controller timer ");
                 
