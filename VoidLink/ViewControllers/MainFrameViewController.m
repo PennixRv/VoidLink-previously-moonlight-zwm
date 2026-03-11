@@ -62,15 +62,18 @@
     StreamConfiguration* _streamConfig;
     UIAlertController* _pairAlert;
     LoadingFrameViewController* _loadingFrame;
-    FrontViewPosition currentPosition;
     NSArray* _sortedAppList;
     NSCache* _boxArtCache;
     bool _background;
     bool _enteredAppView;
+    bool _isStreaming;
+#if !TARGET_OS_TV
+    FrontViewPosition currentPosition;
     bool _settingsViewExpanded;
     UIView* menuSeparator;
     UIView* snapshot;
     SettingsViewController* settingsViewController;
+#endif
     __weak StreamFrameViewController* streamFrameViewController;
     id navBarAppearanceStandard;
     bool _viewJustAppeared;
@@ -350,7 +353,10 @@ static NSMutableSet* hostList;
     self.collectionView.hidden = YES;
     [self updateTitle];
     self.navigationItem.rightBarButtonItems = @[_helpButton, _addHostButton];
-    self.revealViewController.mainFrameIsInHostView = true;  // to allow orientation change only in app view, tell top view controller the mainframe is not in host view
+#if !TARGET_OS_TV
+    // iOS-only: keep SWRevealViewController informed about which "page" we're on.
+    self.revealViewController.mainFrameIsInHostView = true;
+#endif
 }
 
 - (void) receivedAssetForApp:(TemporaryApp*)app {
@@ -374,6 +380,12 @@ static NSMutableSet* hostList;
 
 - (void)switchToAppView{
     _enteredAppView = true;
+#if TARGET_OS_TV
+    // Intercept the menu key to go back to the host page when browsing apps.
+    if (_menuRecognizer != nil && _menuRecognizer.view != self.navigationController.view) {
+        [self.navigationController.view addGestureRecognizer:_menuRecognizer];
+    }
+#endif
     //_appManager = [[AppAssetManager alloc] initWithCallback:self];
     [self.collectionView setCollectionViewLayout:self.collectionViewLayout];
     [self.collectionView reloadData]; //for new scroll host view reloading mechanism
@@ -387,7 +399,9 @@ static NSMutableSet* hostList;
     
     [self attachWaterMark];
     self.navigationItem.rightBarButtonItems = @[_upButton];
+#if !TARGET_OS_TV
     self.revealViewController.mainFrameIsInHostView = false;
+#endif
     // [self disableNavigation];
     [self updateTitle];
     [self alreadyPaired];
@@ -408,7 +422,9 @@ static NSMutableSet* hostList;
 - (void)launchButtonTappedForHost:(TemporaryHost *)host {
     _selectedHost = host;
     if (host.state == StateOnline && host.pairState == PairStatePaired && host.appList.count > 0) {
+#if !TARGET_OS_TV
         [self closeSettingViewAnimated:NO];
+#endif
         // [self switchToAppView];
         [self updateAppsForHost:_selectedHost];
         [self prepareToStreamApp:_sortedAppList.firstObject];
@@ -786,7 +802,11 @@ static NSMutableSet* hostList;
 - (void) prepareToStreamApp:(TemporaryApp *)app {
     launchedApp = app;
     [self updateResolutionAccordingly];
-    self.revealViewController.isStreaming = true; // tell the revealViewController streaming is started.
+    _isStreaming = true;
+#if !TARGET_OS_TV
+    // iOS-only: keep SWRevealViewController state in sync.
+    self.revealViewController.isStreaming = true;
+#endif
     _streamConfig = [[StreamConfiguration alloc] init];
     _streamConfig.host = app.host.activeAddress;
     _streamConfig.httpsPort = app.host.httpsPort;
@@ -1429,8 +1449,13 @@ static NSMutableSet* hostList;
     // 手动设定大小（如图中大约宽118高40）
     button.frame = CGRectMake(0, 0, 130, buttonHeight);
 
-    // 添加点击事件
-    [button addTarget:self action:@selector(addHostTapped) forControlEvents:UIControlEventTouchUpInside];
+    // tvOS uses Apple TV Remote primary action, not touch-up-inside.
+#if TARGET_OS_TV
+    UIControlEvents actionEvent = UIControlEventPrimaryActionTriggered;
+#else
+    UIControlEvents actionEvent = UIControlEventTouchUpInside;
+#endif
+    [button addTarget:self action:@selector(addHostTapped) forControlEvents:actionEvent];
 
     // 创建 UIBarButtonItem
     UIBarButtonItem *barItem = [[UIBarButtonItem alloc] initWithCustomView:button];
@@ -1466,8 +1491,13 @@ static NSMutableSet* hostList;
 
     button.frame = CGRectMake(0, 0, buttonHeight*1.3, buttonHeight*1.05);
 
-    // 添加点击事件
-    [button addTarget:self action:@selector(helpButtonTapped) forControlEvents:UIControlEventTouchUpInside];
+    // tvOS uses Apple TV Remote primary action, not touch-up-inside.
+#if TARGET_OS_TV
+    UIControlEvents actionEvent = UIControlEventPrimaryActionTriggered;
+#else
+    UIControlEvents actionEvent = UIControlEventTouchUpInside;
+#endif
+    [button addTarget:self action:@selector(helpButtonTapped) forControlEvents:actionEvent];
 
     // 创建 UIBarButtonItem
     UIBarButtonItem *barItem = [[UIBarButtonItem alloc] initWithCustomView:button];
@@ -1477,7 +1507,11 @@ static NSMutableSet* hostList;
 - (void)helpButtonTapped{
     if (@available(iOS 13.0, *)) {
         AboutViewController *aboutVC = [[AboutViewController alloc] init];
+#if TARGET_OS_TV
+        aboutVC.modalPresentationStyle = UIModalPresentationFullScreen;
+#else
         aboutVC.modalPresentationStyle = UIModalPresentationFormSheet;
+#endif
         [self presentViewController:aboutVC animated:YES completion:nil];
     } else {
         // Fallback on earlier versions
@@ -1527,14 +1561,26 @@ static NSMutableSet* hostList;
 
     // Set the side bar button action. When it's tapped, it'll show the sidebar.
 
+#if !TARGET_OS_TV
     [_settingsButton setTarget:self.revealViewController];
     [_settingsButton setAction:@selector(revealToggle:)];
+#else
+    // tvOS: settings button should open tvOS Settings (no side drawer).
+    [_settingsButton setTarget:self];
+    [_settingsButton setAction:@selector(openTvSettings:)];
+#endif
     if (@available(iOS 13.0, *)) {
         [_settingsButton setTitle:nil];
-        UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:GenericUtils.liquidGlassEnabled ? 18 : 23 weight:UIImageSymbolWeightMedium ];
+        UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:GenericUtils.liquidGlassEnabled ? 18 : 23 weight:UIImageSymbolWeightMedium];
+#if TARGET_OS_TV
+        UIImage *image = [[UIImage systemImageNamed:@"gearshape" withConfiguration:config] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+#else
         UIImage *image = [[UIImage systemImageNamed:@"sidebar.left" withConfiguration:config] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+#endif
         [_settingsButton setImage:image];
+#if !TARGET_OS_TV
         _settingsButton.imageInsets = GenericUtils.liquidGlassEnabled ? UIEdgeInsetsMake(0, 0, 0, 0.55) : UIEdgeInsetsMake(10, 10, 0, 0);
+#endif
     } else {
         [_settingsButton setTitle:[LocalizationHelper localizedStringForKey:@"Settings"]];
     }
@@ -1642,13 +1688,18 @@ static NSMutableSet* hostList;
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* tempSettings = [dataMan getSettings];
     [ThemeManager setUserInterfaceStyle:tempSettings.appTheme.intValue];
+
+    // Track streaming state without relying on iOS-only SWRevealViewController plumbing.
+    _isStreaming = false;
+    _enteredAppView = false;
+
+    // Setup navigation bar items/buttons for both iOS and tvOS.
+    [self setupNavBar];
     
 #if !TARGET_OS_TV
     self.settingsExpandedInStreamView = false; // init this flag
     self.revealViewController.isStreaming = false; //init this flag for rvlVC
     self.revealViewController.mainFrameIsInHostView = true;
-    
-    [self setupNavBar];
     
     // Set the gesture
     [self.view addGestureRecognizer:self.revealViewController.panGestureRecognizer];
@@ -1677,8 +1728,10 @@ static NSMutableSet* hostList;
     
     _loadingFrame = [self.storyboard instantiateViewControllerWithIdentifier:@"loadingFrame"];
     
-    // Set the current position to the center
+#if !TARGET_OS_TV
+    // Set the current position to the center (settings pane closed).
     currentPosition = FrontViewPositionLeft;
+#endif
     
     // Set up crypto
     [CryptoManager generateKeyPairUsingSSL];
@@ -1722,18 +1775,19 @@ static NSMutableSet* hostList;
     // SettingsViewController* settingsViewController = (SettingsViewController*)[self.revealViewController rearViewController];
     // [settingsViewController updateResolutionTable];
     
+#if !TARGET_OS_TV
     UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleMenuResize:)];
     longPress.delaysTouchesBegan = false;
     longPress.delaysTouchesEnded = false;
     [self.view addGestureRecognizer:longPress];
 
-
     UIStoryboard *storyboard = [UIStoryboard storyboardWithName:[self isIPhone]?@"iPhone":@"iPad" bundle:nil];
     SettingsViewController *viewController = [storyboard instantiateViewControllerWithIdentifier:@"settingsViewController"];
-    // 强制加载视图
+    // Force-load the settings view so dynamic labels/layout are ready.
     __unused UIView *view = viewController.view;
-    
+
     snapshot = nil;
+#endif
     
     _controllerConnectObserver = [[NSNotificationCenter defaultCenter] addObserverForName:GCControllerDidConnectNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         Log(LOG_I, @"Controller connected!");
@@ -1963,6 +2017,7 @@ static NSMutableSet* hostList;
     [super viewDidAppear:NO];
 
     _viewJustAppeared = true;
+    _isStreaming = false;
 
     [self beginForegroundRefresh];
 
@@ -2020,12 +2075,14 @@ static NSMutableSet* hostList;
                                                object:nil];
 
     /* this makes background color works*/
-    
+
+#if !TARGET_OS_TV
     if(!_settingsViewExpanded){
         for (UIView *subview in self.view.subviews) {
-            [subview removeFromSuperview]; // 暂时移除所有子视图
+            [subview removeFromSuperview]; // Temporarily remove all subviews (side-menu layout workaround)
         }
     }
+#endif
     
     // We can get here on home press while streaming
     // since the stream view segues to us just before
@@ -2225,11 +2282,11 @@ static NSMutableSet* hostList;
 }
 
 - (bool)isInAppView{
-    return !self.revealViewController.isStreaming && _enteredAppView;
+    return !_isStreaming && _enteredAppView;
 }
 
 - (bool)isStreaming{
-    return self.revealViewController.isStreaming;
+    return _isStreaming;
 }
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
@@ -2303,6 +2360,7 @@ static NSMutableSet* hostList;
     [_boxArtCache removeAllObjects];
 }
 
+#if !TARGET_OS_TV
 - (UIView* )findMenuSeparator{
     BOOL shouldBreak = NO;
     UIView* seperator=self.view;
@@ -2367,8 +2425,9 @@ static NSMutableSet* hostList;
         });
     }
 }
+#endif
 
-
+#if !TARGET_OS_TV
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     [self.view endEditing:YES];
 }
@@ -2387,6 +2446,7 @@ static NSMutableSet* hostList;
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
     [snapshot removeFromSuperview];
 }
+#endif
 
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
