@@ -1679,7 +1679,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/libs/opus/lib",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=appletvos*]" = (
 					"$(inherited)",
@@ -1746,7 +1745,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/libs/opus/lib",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=appletvos*]" = (
 					"$(inherited)",
