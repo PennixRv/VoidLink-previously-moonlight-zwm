@@ -1562,12 +1562,18 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)alterAbsTouchDragWith:(int32_t)mouseButton{
+#if TARGET_OS_TV
+    // tvOS doesn't use absolute touch.
+    (void)mouseButton;
+    return;
+#else
     if([touchHandler isKindOfClass:[AbsoluteTouchHandler class]]){
         AbsoluteTouchHandler* handler = (AbsoluteTouchHandler* )touchHandler;
         AbsoluteTouchHandler.mouseButtonForCursorMove = mouseButton;
         [handler pauseLeftButtonDrag];
     }
     else return;
+#endif
 }
 
 - (void)switchPencilHover{
