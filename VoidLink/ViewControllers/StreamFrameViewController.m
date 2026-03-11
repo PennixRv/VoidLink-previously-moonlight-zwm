@@ -56,8 +56,15 @@
     NSTimer *_statsUpdateTimer;
     PaddedLabel *_overlayView;
     UITapGestureRecognizer *_menuTapGestureRecognizer;
-    UITapGestureRecognizer *_menuDoubleTapGestureRecognizer;
     UITapGestureRecognizer *_playPauseTapGestureRecognizer;
+#if TARGET_OS_TV
+    UIView *_tvosActionOverlay;
+    UIVisualEffectView *_tvosActionPanel;
+    UIStackView *_tvosActionStack;
+    UIButton *_tvosResumeButton;
+    UIButton *_tvosStatsButton;
+    UIButton *_tvosDisconnectButton;
+#endif
     uint16_t overlayLevel;
     UILabel *_stageLabel;
     UILabel *_tipLabel;
@@ -587,22 +594,140 @@
 }
 
 #if TARGET_OS_TV
+- (UIButton *)tvosMakeOverlayButtonWithTitle:(NSString *)title action:(SEL)action {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button setTitle:title forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:34 weight:UIFontWeightSemibold];
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+    button.contentEdgeInsets = UIEdgeInsetsMake(18, 26, 18, 26);
+    button.tintColor = UIColor.whiteColor;
+    [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
+    return button;
+}
+
+- (void)tvosEnsureActionOverlay {
+    if (_tvosActionOverlay != nil) {
+        return;
+    }
+
+    _tvosActionOverlay = [[UIView alloc] initWithFrame:CGRectZero];
+    _tvosActionOverlay.translatesAutoresizingMaskIntoConstraints = NO;
+    _tvosActionOverlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.55];
+    _tvosActionOverlay.alpha = 0.0;
+    _tvosActionOverlay.hidden = YES;
+
+    _tvosActionPanel = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    _tvosActionPanel.translatesAutoresizingMaskIntoConstraints = NO;
+    _tvosActionPanel.clipsToBounds = YES;
+    _tvosActionPanel.layer.cornerRadius = GenericUtils.liquidGlassEnabled ? 26.0 : 22.0;
+    _tvosActionPanel.layer.borderWidth = GenericUtils.liquidGlassEnabled ? 0.0 : 1.0;
+    _tvosActionPanel.layer.borderColor = [[UIColor colorWithWhite:1 alpha:0.10] CGColor];
+
+    _tvosActionStack = [[UIStackView alloc] initWithFrame:CGRectZero];
+    _tvosActionStack.translatesAutoresizingMaskIntoConstraints = NO;
+    _tvosActionStack.axis = UILayoutConstraintAxisVertical;
+    _tvosActionStack.alignment = UIStackViewAlignmentFill;
+    _tvosActionStack.distribution = UIStackViewDistributionFill;
+    _tvosActionStack.spacing = 10.0;
+
+    _tvosResumeButton = [self tvosMakeOverlayButtonWithTitle:@"Resume" action:@selector(tvosHideActionOverlay)];
+    _tvosStatsButton = [self tvosMakeOverlayButtonWithTitle:@"Toggle Stats" action:@selector(tvosToggleStatsFromOverlay)];
+    _tvosDisconnectButton = [self tvosMakeOverlayButtonWithTitle:@"Disconnect" action:@selector(tvosDisconnectFromOverlay)];
+
+    [_tvosActionStack addArrangedSubview:_tvosResumeButton];
+    [_tvosActionStack addArrangedSubview:_tvosStatsButton];
+    [_tvosActionStack addArrangedSubview:_tvosDisconnectButton];
+
+    [_tvosActionPanel.contentView addSubview:_tvosActionStack];
+    [_tvosActionOverlay addSubview:_tvosActionPanel];
+    [self.view addSubview:_tvosActionOverlay];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [_tvosActionOverlay.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [_tvosActionOverlay.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [_tvosActionOverlay.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [_tvosActionOverlay.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+
+        [_tvosActionPanel.centerXAnchor constraintEqualToAnchor:_tvosActionOverlay.centerXAnchor],
+        [_tvosActionPanel.centerYAnchor constraintEqualToAnchor:_tvosActionOverlay.centerYAnchor],
+        [_tvosActionPanel.widthAnchor constraintEqualToAnchor:self.view.widthAnchor multiplier:0.52],
+
+        [_tvosActionStack.leadingAnchor constraintEqualToAnchor:_tvosActionPanel.contentView.leadingAnchor],
+        [_tvosActionStack.trailingAnchor constraintEqualToAnchor:_tvosActionPanel.contentView.trailingAnchor],
+        [_tvosActionStack.topAnchor constraintEqualToAnchor:_tvosActionPanel.contentView.topAnchor],
+        [_tvosActionStack.bottomAnchor constraintEqualToAnchor:_tvosActionPanel.contentView.bottomAnchor],
+    ]];
+}
+
+- (BOOL)tvosIsActionOverlayVisible {
+    return _tvosActionOverlay != nil && !_tvosActionOverlay.hidden;
+}
+
+- (void)tvosShowActionOverlay {
+    [self tvosEnsureActionOverlay];
+    if ([self tvosIsActionOverlayVisible]) {
+        return;
+    }
+
+    _tvosActionOverlay.hidden = NO;
+    [UIView animateWithDuration:0.18 animations:^{
+        self->_tvosActionOverlay.alpha = 1.0;
+    } completion:^(BOOL finished) {
+        (void)finished;
+        [self setNeedsFocusUpdate];
+        [self updateFocusIfNeeded];
+    }];
+}
+
+- (void)tvosHideActionOverlay {
+    if (![self tvosIsActionOverlayVisible]) {
+        return;
+    }
+
+    [UIView animateWithDuration:0.16 animations:^{
+        self->_tvosActionOverlay.alpha = 0.0;
+    } completion:^(BOOL finished) {
+        (void)finished;
+        self->_tvosActionOverlay.hidden = YES;
+        [self setNeedsFocusUpdate];
+        [self updateFocusIfNeeded];
+    }];
+}
+
+- (void)tvosToggleStatsFromOverlay {
+    [self toggleStatsOverlay];
+}
+
+- (void)tvosDisconnectFromOverlay {
+    [self disconnectRemoteSession];
+}
+
+- (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
+    if ([self tvosIsActionOverlayVisible] && _tvosResumeButton != nil) {
+        return @[_tvosResumeButton];
+    }
+    return [super preferredFocusEnvironments];
+}
+
 - (void)controllerPauseButtonPressed:(id)sender {
     (void)sender;
-    // Map the MENU button to a right-click. Double-press MENU exits the stream.
+    // tvOS: Menu toggles an in-stream overlay (Disconnect/Stats/etc).
+    if ([self tvosIsActionOverlayVisible]) {
+        [self tvosHideActionOverlay];
+    } else {
+        [self tvosShowActionOverlay];
+    }
+}
+
+- (void)controllerPlayPauseButtonPressed:(id)sender {
+    (void)sender;
+    // tvOS: Play/Pause maps to right-click.
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^{
         LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
         usleep(50 * 1000);
         LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
     });
-}
-- (void)controllerPauseButtonDoublePressed:(id)sender {
-    Log(LOG_I, @"Menu double-pressed -- backing out of stream");
-    [self returnToMainFrame];
-}
-- (void)controllerPlayPauseButtonPressed:(id)sender {
-    Log(LOG_I, @"Play/Pause button pressed -- backing out of stream");
-    [self returnToMainFrame];
 }
 #endif
 
@@ -695,21 +820,15 @@
 #endif
 
 #if TARGET_OS_TV
-    if (!_menuTapGestureRecognizer || !_menuDoubleTapGestureRecognizer || !_playPauseTapGestureRecognizer) {
+    if (!_menuTapGestureRecognizer || !_playPauseTapGestureRecognizer) {
         _menuTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPauseButtonPressed:)];
         _menuTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypeMenu)];
 
         _playPauseTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPlayPauseButtonPressed:)];
         _playPauseTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypePlayPause)];
-        
-        _menuDoubleTapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(controllerPauseButtonDoublePressed:)];
-        _menuDoubleTapGestureRecognizer.numberOfTapsRequired = 2;
-        [_menuTapGestureRecognizer requireGestureRecognizerToFail:_menuDoubleTapGestureRecognizer];
-        _menuDoubleTapGestureRecognizer.allowedPressTypes = @[@(UIPressTypeMenu)];
     }
     
     [self.view addGestureRecognizer:_menuTapGestureRecognizer];
-    [self.view addGestureRecognizer:_menuDoubleTapGestureRecognizer];
     [self.view addGestureRecognizer:_playPauseTapGestureRecognizer];
 
 #else
@@ -721,7 +840,7 @@
     [_tipLabel setUserInteractionEnabled:NO];
     
 #if TARGET_OS_TV
-    [_tipLabel setText:@"Tip: Press Play/Pause to disconnect. Press Menu for right-click. Double-press Menu to exit."];
+    [_tipLabel setText:@"Tip: Press Menu for overlay. Press Play/Pause for right-click."];
 #else
     // [_tipLabel setText:[LocalizationHelper localizedStringForKey:@"Tip: Swipe from screen edge to a certiain distance (configured by Swipe & Exit settings) to disconnect from your PC"]];
 #endif
