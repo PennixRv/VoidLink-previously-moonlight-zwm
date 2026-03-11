@@ -1,30 +1,33 @@
-name: Build VoidLink IPA
+name: Build VoidLink tvOS IPA
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ "feat/frame_pacing_metal" ]
+    branches: [ "Integration" ]
 
 jobs:
-  build:
-    name: Build VoidLink IPA
+  build_tvos:
+    name: Build tvOS IPA
     runs-on: macos-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Checkout submodules
-        run: "git submodule update --init --recursive"
+      - name: List Xcode Schemes
+        run: xcodebuild -project VoidLink.xcodeproj -list
 
-      - name: Build VoidLink
+      - name: Xcodebuild (tvOS)
         run: |
-          xcodebuild -verbose -scheme VoidLink -sdk iphoneos -configuration Debug archive -archivePath $PWD/build/VoidLink.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
-          mkdir -p ./build/IPA && mkdir -p ./build/IPA/Payload
-          cp -r ./build/VoidLink.xcarchive/Products/Applications/VoidLink.app ./build/IPA/Payload/VoidLink.app
-          cd ./build/IPA && zip -r ../../build/VoidLink.ipa ./Payload/* && cd ../..
+          xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
+          mkdir -p ./build/tvos/IPA/Payload
+          cp -r ./build/tvos/VoidLinkTV.xcarchive/Products/Applications/VoidLinkTV.app ./build/tvos/IPA/Payload/VoidLinkTV.app
+          cd ./build/tvos/IPA && zip -r ../VoidLink-tvOS.ipa ./Payload && cd ../..
 
-      - name: Upload VoidLink IPA to Artifacts
+      - name: Upload tvOS IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoidLink.ipa
-          path: build/VoidLink.ipa
+          name: VoidLink-tvOS.ipa
+          path: build/tvos/VoidLink-tvOS.ipa

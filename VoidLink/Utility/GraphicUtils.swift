@@ -7,8 +7,21 @@
 //
 
 
-import Foundation
+import UIKit
+
+#if canImport(SVGKit)
 import SVGKit
+#else
+// Keep the app building for targets that don't include the SVGKit Swift package
+// (e.g. our tvOS target). SVG rendering is treated as an optional enhancement.
+@objc public class SVGKImage: NSObject {
+    @objc public var caLayerTree: CALayer? { nil }
+    @objc public init?(data: Data) {
+        super.init()
+        return nil
+    }
+}
+#endif
 
 @objc public class GraphicUtils: NSObject {
     @objc public static func makeSVGLayer(
@@ -23,9 +36,7 @@ import SVGKit
             return CALayer()
         }
 
-        guard let svg = SVGKImage(data: data) else {
-            fatalError("Failed to load SVG \(file)")
-        }
+        guard let svg = SVGKImage(data: data) else { return CALayer() }
         
         return _makeSVGLayer(
             from: svg,
@@ -55,7 +66,7 @@ import SVGKit
         getWrapperLayer: Bool = true
     ) -> CALayer {
         
-        let svgLayer = svg.caLayerTree!
+        guard let svgLayer = svg.caLayerTree else { return CALayer() }
 
         svgLayer.transform = CATransform3DIdentity
 

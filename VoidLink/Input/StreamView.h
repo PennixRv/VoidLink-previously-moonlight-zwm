@@ -40,7 +40,9 @@
 @property (assign, nonatomic) CGRect originalFrame;
 @property (assign, nonatomic) bool widgetToolOpened;
 @property (strong, nonatomic) OnScreenControls* onScreenControls;
+#if !TARGET_OS_TV
 @property (weak, nonatomic) PencilHandler* pencilHandler;
+#endif
 @property (weak, nonatomic) UIViewController* streamFrameVC;
 
 - (void) setupStreamView:(ControllerSupport*)controllerSupport
@@ -76,9 +78,11 @@
 
 - (void)alterAbsTouchDragWith:(int32_t)mouseButton;
 
+#if !TARGET_OS_TV
 - (void)enablePencilHover;
 - (void)disablePencilHover;
 - (void)setAllowSingleTouchEnabled:(BOOL)enabled;
+#endif
 
 #if !TARGET_OS_TV
 - (void) updateCursorLocation:(CGPoint)location isMouse:(BOOL)isMouse;

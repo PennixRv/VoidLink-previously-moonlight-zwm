@@ -299,11 +299,20 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
     AVAudioSessionCategoryOptions bluetoothAudioOption = useBluetoothD2P ? AVAudioSessionCategoryOptionAllowBluetoothA2DP : AVAudioSessionCategoryOptionAllowBluetooth;
     AVAudioSessionCategoryOptions volumeMixOption = tempSettings.duckOtherApps ? AVAudioSessionCategoryOptionDuckOthers : AVAudioSessionCategoryOptionMixWithOthers;
     AVAudioSession *session = [AVAudioSession sharedInstance];
+#if TARGET_OS_TV
+    // tvOS has no app-accessible microphone input (Siri Remote mic is not available to apps),
+    // so redirectMic is not meaningful here. Force playback mode to avoid audio routing issues.
+    [session setCategory:AVAudioSessionCategoryPlayback
+                    mode:AVAudioSessionModeDefault
+                 options:volumeMixOption|bluetoothAudioOption
+                   error:nil];
+#else
     [session setCategory:tempSettings.redirectMic ? AVAudioSessionCategoryPlayAndRecord : AVAudioSessionCategoryPlayback
                     mode:AVAudioSessionModeDefault
                  options:volumeMixOption|bluetoothAudioOption
                    error:nil];
-    if(tempSettings.redirectMic) if(@available(iOS 13.0, *)) [session setAllowHapticsAndSystemSoundsDuringRecording:YES error:nil];
+    if(tempSettings.redirectMic) if(@available(iOS 13.0, tvOS 13.0, *)) [session setAllowHapticsAndSystemSoundsDuringRecording:YES error:nil];
+#endif
     [session setActive:YES error:nil];
     audioSessionInterrupted = false;
 
@@ -625,7 +634,11 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     _streamConfig.bitrate = config.bitRate;
     _streamConfig.supportedVideoFormats = config.supportedVideoFormats;
     _streamConfig.audioConfiguration = config.audioConfiguration;
+#if TARGET_OS_TV
+    _streamConfig.redirectMic = 0;
+#else
     _streamConfig.redirectMic = config.redirectMic && [MicHandler permissionGranted];
+#endif
     [Connection setVolume:config.localVolume];
     // Since we require iOS 12 or above, we're guaranteed to be running
     // on a 64-bit device with ARMv8 crypto instructions, so we don't

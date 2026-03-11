@@ -7,13 +7,73 @@
 //
 
 import Foundation
+import CoreGraphics
+
+#if !os(tvOS)
 import CoreMotion
+#endif
 
 @objc public protocol OnScreenWidgetStickMixedInputDelegate: AnyObject {
     func mixOnScreenRightStickAndGyroInput(x: CGFloat, y: CGFloat)
     func mixOnScreenLeftStickAndGyroInput(x: CGFloat, y: CGFloat)
     func gyroMixInputStarted() -> Bool
 }
+
+#if os(tvOS)
+
+// tvOS builds may not have CoreMotion available (and Apple TV doesn't support Apple Pencil).
+// Keep a lightweight no-op implementation so the project can compile and streaming can work
+// without gyro features.
+@objc class MotionHandler: NSObject, OnScreenWidgetStickMixedInputDelegate {
+    private static let sharedInstance = MotionHandler()
+
+    @objc class func shared(profile: OSCProfile?) -> MotionHandler {
+        // Keep API parity with iOS implementation; ignore profile for now.
+        return MotionHandler.sharedInstance
+    }
+
+    @objc public var gyroControlStarted: Bool = false
+    @objc public var widgetYawFactor: CGFloat = 1.0
+    @objc public var widgetPitchFactor: CGFloat = 1.0
+    @objc public var widgetRollFactor: CGFloat = 1.0
+    @objc public var previousWidgetYawFactor: CGFloat = 1.0
+    @objc public var previousWidgetPitchFactor: CGFloat = 1.0
+    @objc public var previousWidgetRollFactor: CGFloat = 1.0
+
+    @objc public var onScreenControls: OnScreenControls?
+
+    @objc public var gyroBiasX: Double = 0
+    @objc public var gyroBiasY: Double = 0
+    @objc public var gyroBiasZ: Double = 0
+    @objc public var gyroToStickMinOffset: Double = 0
+
+    // MARK: - OnScreenWidgetStickMixedInputDelegate
+
+    func mixOnScreenRightStickAndGyroInput(x: CGFloat, y: CGFloat) {}
+    func mixOnScreenLeftStickAndGyroInput(x: CGFloat, y: CGFloat) {}
+    func gyroMixInputStarted() -> Bool { false }
+
+    // MARK: - ObjC-bridged API used by existing code
+
+    @objc public func mixPhysicalRightStickAndGyroInput(x: CGFloat, y: CGFloat) {}
+    @objc public func mixPhysicalLeftStickAndGyroInput(x: CGFloat, y: CGFloat) {}
+
+    @objc public func startGyroByControllerButton() {}
+    @objc public func startGyroUpdate() {}
+    @objc public func startAccelUpdate() {}
+
+    @objc public func stopGyroUpdate(interruptNoneGyroInput: Bool = false, resetLeftStick: Bool = false) {
+        gyroControlStarted = false
+    }
+
+    @objc public func stopAccelUpdate() {}
+
+    @objc public func calibrateGyroBias(duration: TimeInterval = 5.0, completion: @escaping () -> Void) {
+        completion()
+    }
+}
+
+#else
 
 @objc class MotionHandler: NSObject, OnScreenWidgetStickMixedInputDelegate{
     public func mixOnScreenRightStickAndGyroInput(x: CGFloat, y: CGFloat) {
@@ -383,3 +443,5 @@ import CoreMotion
         }
     }
 }
+
+#endif

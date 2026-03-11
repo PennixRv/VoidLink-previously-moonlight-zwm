@@ -16,11 +16,17 @@
 #import "HostCardView.h"
 #import "UIAppView.h"
 #import "AppAssetManager.h"
+#if !TARGET_OS_TV
 #import "SWRevealViewController.h"
+#endif
 #import "HostCollectionViewController.h"
 
 
-@interface MainFrameViewController : UICollectionViewController <DiscoveryCallback, PairCallback, AppCallback, AppAssetCallback, NSURLConnectionDelegate, SWRevealViewControllerDelegate, HostCardActionDelegate, AppViewUpdateLoopDelegate>
+@interface MainFrameViewController : UICollectionViewController <DiscoveryCallback, PairCallback, AppCallback, AppAssetCallback, NSURLConnectionDelegate
+#if !TARGET_OS_TV
+, SWRevealViewControllerDelegate
+#endif
+, HostCardActionDelegate, AppViewUpdateLoopDelegate>
 
 @property (nonatomic, strong) IBOutlet UIBarButtonItem *settingsButton;
 #if !TARGET_OS_TV

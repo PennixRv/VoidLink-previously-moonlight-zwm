@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import SVGKit
 
 @objc class OnScreenWidgetView: UIView {
     @objc public static var mapping: [Int16:OnScreenWidgetView] = [:]
@@ -3128,4 +3127,3 @@ import SVGKit
         print("onScreenWidgetView deinit \(CACurrentMediaTime())")
     }
 }
-

@@ -15,7 +15,9 @@
 #import "MetalViewController.h"
 #import "StreamConfiguration.h"
 #import "StreamView.h"
+#if !TARGET_OS_TV
 #import "LayoutOnScreenControlsViewController.h"
+#endif
 #import "MainFrameViewController.h"
 #import "StreamManager.h"
 

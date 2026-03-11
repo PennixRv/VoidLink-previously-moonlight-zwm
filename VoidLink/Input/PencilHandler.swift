@@ -9,6 +9,43 @@
 
 import UIKit
 
+// tvOS doesn't support Apple Pencil APIs (e.g. UIPencilInteraction). We keep a no-op
+// implementation so the shared codebase can compile for tvOS without scattering
+// TARGET_OS_TV guards everywhere.
+#if os(tvOS)
+
+@objc class PencilHandler: NSObject {
+    @objc static var shared: PencilHandler?
+
+    @objc static var hoverSupported: Bool = false
+    @objc static private(set) var hoverMode: PencilHoverMode = .HoverDisabled
+    @objc static private(set) var isDrawing: Bool = false
+    @objc static private(set) var pencilPausesNativeTouch: Bool = false
+
+    @objc static private(set) var eraserShortcut: String = ""
+    @objc static private(set) var brushShortcut: String = ""
+    @objc static private(set) var squeezeStartShortcut: String = ""
+    @objc static private(set) var squeezeEndShortcut: String = ""
+
+    @objc init(streamView: UIView, settings: TemporarySettings) {
+        super.init()
+        PencilHandler.shared = self
+    }
+
+    @objc public func setupPressureLUT(profile: OSCProfile? = nil) {}
+    @objc public func switchPencilHover() {}
+    @objc public func enablePencilHover() {}
+    @objc public func disablePencilHover() {}
+
+    @objc func replaceBrush(with shortcut: String) {}
+    @objc func replaceEraser(with shortcut: String) {}
+
+    @objc static public func enterDoubleTapShortcuts(in viewController: UIViewController) {}
+    @objc static public func enterSqueezeShortcuts(in viewController: UIViewController) {}
+}
+
+#else
+
 @objc class PencilHandler: UIResponder, UIPencilInteractionDelegate {
     @objc static var shared: PencilHandler?
     
@@ -539,3 +576,5 @@ import UIKit
     }
 
 }
+
+#endif

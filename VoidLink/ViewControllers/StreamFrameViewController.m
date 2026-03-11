@@ -953,7 +953,9 @@
 - (void) returnToMainFrame {
     [_streamView clearOnScreenWidgets];
     if(micHandler) [micHandler clean];
+#if !TARGET_OS_TV
     PencilHandler.shared = nil;
+#endif
     
     // Reset display mode back to default
     [self updatePreferredDisplayMode:NO];
@@ -1595,6 +1597,7 @@
     [self reConfigStreamViewRealtime];
 }
 
+#if !TARGET_OS_TV
 - (NSMutableDictionary *)startGyroUpdate:(OnScreenWidgetView *)sender yawFactor:(CGFloat)yawFactor pitchFactor:(CGFloat)pitchFactor rollFactor:(CGFloat)rollFactor{
     NSMutableDictionary* gyroControlPreviousStatus = [NSMutableDictionary dictionary];
 
@@ -1682,6 +1685,7 @@
                                    completion:^{}];
     }
 }
+#endif
 
 #if !TARGET_OS_TV
 // Require a confirmation when streaming to activate a system gesture

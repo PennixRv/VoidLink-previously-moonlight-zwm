@@ -10,6 +10,12 @@
 
 <br>
 
+# tvOS（Apple TV）构建与侧载
+- 如果你只有 Apple TV（无 Mac / 无其他 Apple 设备），可以参考：`docs/tvos-sideload.md`（GitHub Actions 构建 tvOS IPA + atvloadly 侧载）。
+- If you only have an Apple TV (no Mac / no other Apple devices), see: `docs/tvos-sideload.md` (build tvOS IPA via GitHub Actions + sideload via atvloadly).
+
+<br>
+
 # 关于VoidLink. About VoidLink
 - 本项目最初基于开源项目 [moonlight-iOS] fork 而来。在此基础上，True砖家（True Zhuanjia）@ Bilibili 及其他社区开发者对项目进行了大量重构、重新设计与功能扩展，包括全新的用户界面和显著增强的功能特性。<br>我们对 moonlight-iOS 开发者的开创性工作表示衷心感谢。 <br><br>
 - VoidLink was originally forked from the open-source project [moonlight-iOS], but has since been extensively reworked, redesigned, and expanded by True砖家 (True Zhuanjia) @ Bilibili and other community developers. These contributions include a completely new user interface and significant enhancements to the application's functionality.<br>We gratefully acknowledge the foundational work of the moonlight-iOS developers.
