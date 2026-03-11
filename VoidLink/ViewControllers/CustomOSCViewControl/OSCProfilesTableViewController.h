@@ -16,7 +16,11 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  This view displays a list of on screen controller profiles and gives the user the ability to select any of the profiles to be the 'Selected' profile whose on screen controller layout configuration will be shown on the game stream view, or in the on screen controller layout view.  This view also allows the user to swipe and delete any of the listed profiles.
  */
+#if TARGET_OS_TV
+@interface OSCProfilesTableViewController : UIViewController <UITableViewDelegate, UITableViewDataSource>
+#else
 @interface OSCProfilesTableViewController : UIViewController <UITableViewDelegate, UITableViewDataSource, UIDocumentPickerDelegate>
+#endif
 
 - (void)profileViewRefresh;
 

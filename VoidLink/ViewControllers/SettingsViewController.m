@@ -10,6 +10,14 @@
 //
 
 #import "SettingsViewController.h"
+
+#if TARGET_OS_TV
+
+@implementation SettingsViewController
+@end
+
+#else
+
 #import "TemporarySettings.h"
 #import "DataManager.h"
 #import "VoidLink-Swift.h"
@@ -3811,3 +3819,5 @@ BOOL isCustomResolution(int resolutionSelected) {
 }
 
 @end
+
+#endif

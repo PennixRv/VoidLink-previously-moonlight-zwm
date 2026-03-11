@@ -16,6 +16,10 @@
 #import "CustomEdgeSlideGestureRecognizer.h"
 #import "MenuSectionView.h"
 
+#if TARGET_OS_TV
+@interface SettingsViewController : UIViewController
+@end
+#else
 @interface SettingsViewController : UIViewController <RearNavigationBarMenuDelegate, MenuSectionDelegate, MicHandlerDelegate>
 
 @property (strong, nonatomic) IBOutlet UINavigationBar *navigationBar;
@@ -305,3 +309,4 @@
 - (void)updateCodecDependentSwitches;
 
 @end
+#endif

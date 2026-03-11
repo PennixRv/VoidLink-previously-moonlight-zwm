@@ -10,6 +10,19 @@
 //
 
 #import "OSCProfilesTableViewController.h"
+
+#if TARGET_OS_TV
+
+@implementation OSCProfilesTableViewController
+
+- (void)profileViewRefresh {
+    // No-op on tvOS build (this view controller isn't used).
+}
+
+@end
+
+#else
+
 #import "LayoutOnScreenControlsViewController.h"
 #import "ProfileTableViewCell.h"
 #import "OSCProfile.h"
@@ -22,6 +35,8 @@ const double NAV_BAR_HEIGHT = 50;
 @interface OSCProfilesTableViewController () <UIGestureRecognizerDelegate>
 
 @end
+
+#endif
 
 @implementation OSCProfilesTableViewController {
     OSCProfilesManager *profilesManager;

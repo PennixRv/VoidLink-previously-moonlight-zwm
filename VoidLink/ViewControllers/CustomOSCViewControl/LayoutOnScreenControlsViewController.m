@@ -10,6 +10,14 @@
 //
 
 #import "LayoutOnScreenControlsViewController.h"
+
+#if TARGET_OS_TV
+
+@implementation LayoutOnScreenControlsViewController
+@end
+
+#else
+
 #import "OSCProfilesTableViewController.h"
 #import "OnScreenButtonState.h"
 #import "OnScreenControls.h"
@@ -1957,3 +1965,5 @@ typedef NS_ENUM(NSUInteger, DecelerationRateSliderMode) {
 
 
 @end
+
+#endif
