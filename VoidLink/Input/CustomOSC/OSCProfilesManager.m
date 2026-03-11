@@ -430,7 +430,11 @@ static CGRect layoutViewBounds;
             buttonState.vibrationStyle = [style unsignedCharValue];
             // 使用 val
         }
+#if TARGET_OS_TV
+        else buttonState.vibrationStyle = 0;
+#else
         else buttonState.vibrationStyle = UIImpactFeedbackStyleLight;
+#endif
 
         // NSLog(@"oscLayerName: %@, opacity: %f, ", oscButtonLayer.name, buttonState.backgroundAlpha);
         // buttonState.oscLayerSizeFactor = oscButtonLayer.bounds;
