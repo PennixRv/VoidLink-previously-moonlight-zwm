@@ -91,10 +91,6 @@
     MicHandler* micHandler;
     MotionHandler *_motionHandler;
 
-#else
-    UITapGestureRecognizer *_menuTapGestureRecognizer;
-    UITapGestureRecognizer *_menuDoubleTapGestureRecognizer;
-    UITapGestureRecognizer *_playPauseTapGestureRecognizer;
 #endif
 
 }
@@ -199,7 +195,9 @@
         if (@available(iOS 15.0, *)) {
             self.pipContentSource = [[AVPictureInPictureControllerContentSource alloc] initWithSampleBufferDisplayLayer:streamLayer playbackDelegate:(id<AVPictureInPictureSampleBufferPlaybackDelegate>)self];
             self.pipController = [[AVPictureInPictureController alloc] initWithContentSource:self.pipContentSource];
+#if !TARGET_OS_TV
             self.pipController.canStartPictureInPictureAutomaticallyFromInline = YES;
+#endif
         } else {
             Log(LOG_E, @"PiP not fully supported on this device.");
             return;
@@ -229,6 +227,7 @@
 }
 
 - (void)updateToolboxSpecialEntries{
+#if !TARGET_OS_TV
     if([self isOscLayoutToolEnabled]){
         if(![toolBoxViewController.specialEntries containsObject:@"widgetLayoutTool"]) [toolBoxViewController.specialEntries insertObject:@"widgetLayoutTool" atIndex:0];
         if(![toolBoxViewController.specialEntries containsObject:@"widgetSwitchTool"]) [toolBoxViewController.specialEntries insertObject:@"widgetSwitchTool" atIndex:1];
@@ -243,10 +242,11 @@
     else [toolBoxViewController.specialEntries removeObject:@"enterPip"];
     
     NSLog(@"toolBoxViewController.specialEntries %@", toolBoxViewController.specialEntries);
+#endif
 }
 
 - (void)configOscLayoutTool{
-
+#if !TARGET_OS_TV
     if([self isOscLayoutToolEnabled]){
         /* sets a reference to the correct 'LayoutOnScreenControlsViewController' depending on whether the user is on an iPhone or iPad */
         // _layoutOnScreenControlsVC = [[LayoutOnScreenControlsViewController alloc] init];
@@ -265,9 +265,11 @@
     }
     //NSLog(@"in osc frameview gestures: %d", (uint32_t)[self.view.gestureRecognizers count]);
     //NSLog(@"in osc streamview gestures: %d", (uint32_t)[_streamView.gestureRecognizers count]);
+#endif
 }
 
 - (void)bringUpToolboxMenu{
+#if !TARGET_OS_TV
     [self configOscLayoutTool];
     ToolboxViewController* oldToolboxVC = toolBoxViewController;
     toolBoxViewController = [[ToolboxViewController alloc] init];
@@ -277,9 +279,11 @@
     [self presentViewController:toolBoxViewController animated:YES completion:^{
         //[self->toolBoxViewController setupConstraints];
     }];
+#endif
 }
 
 - (void)configGestures{
+#if !TARGET_OS_TV
     _slideToSettingsRecognizer = [[CustomEdgeSlideGestureRecognizer alloc] initWithTarget:self action:@selector(edgeSwiped)];
     _slideToSettingsRecognizer.excludePencilEvent = _oscProfile.disablePencilSlideGestures;
     _slideToSettingsRecognizer.edgeTolerance = _settings.edgeSlidingSensitivity.floatValue;
@@ -311,6 +315,7 @@
         _oscLayoutTapRecoginizer.touchCapturingView = _streamView;
     }
     
+#endif
 }
 
 - (void)configZoomGestureAndAddStreamView{
@@ -368,17 +373,21 @@
     [self setupOverlayView];
     
     if(viewIsBeingResized) viewIsBeingResized = false;
+#if !TARGET_OS_TV
     else [self configOscLayoutTool];
     [self updateToolboxSpecialEntries];
     [self configGestures];
+#endif
     [self configZoomGestureAndAddStreamView];
     [self->_streamView disableOnScreenControls]; //don't know why but this must be called outside the streamview class, just put it here. execute in streamview class cause hang
     [self.mainFrameViewcontroller reloadStreamConfig]; // reload streamconfig
     
+#if !TARGET_OS_TV
     if([MicHandler permissionGranted] && _settings.redirectMic){
         [micHandler startTapping];
     }
     else [micHandler stopTappingWithStopEngine:false];
+#endif
     
     Connection.muteInBackground = _settings.muteInBackground;
     
@@ -389,6 +398,7 @@
     [self->_streamView reloadOnScreenControlsRealtimeWith:(ControllerSupport*)_controllerSupport
                                         andConfig:(StreamConfiguration*)_streamConfig]; //reload OSC here.
     
+#if !TARGET_OS_TV
     bool onScreenWidgetSwitched = previousOnScreenWidgetEnabled != [_streamView isOnScreenWidgetEnabled];
     bool needReload = onScreenWidgetSwitched && !previousOnScreenWidgetEnabled;
     OnScreenWidgetView.trackPointEnabled = _settings.touchPointTracking;
@@ -396,6 +406,7 @@
     
     if(onScreenWidgetSwitched && previousOnScreenWidgetEnabled) [_streamView clearOnScreenWidgets];
     previousOnScreenWidgetEnabled = [_streamView isOnScreenWidgetEnabled];
+#endif
     
     [self reloadAirPlayConfig];
     [self mousePresenceChanged];
@@ -451,6 +462,7 @@
     }
     else [safeTimer pause];
     
+#if !TARGET_OS_TV
     _motionHandler = [MotionHandler sharedWithProfile: nil];
     _motionHandler.gyroBiasX = _settings.gyroBiasX.doubleValue;
     _motionHandler.gyroBiasY = _settings.gyroBiasY.doubleValue;
@@ -461,6 +473,7 @@
     TouchPadGestureHandler.scrollSensitivity = _settings.scrollSensitivity.floatValue;
     TouchPadGestureHandler.pinchSensitivity = _settings.pinchSensitivity.floatValue;
     TouchPadGestureHandler.displayLinkRate = _settings.framerate.intValue;
+#endif
 
     NSLog(@"frameview gestures: %d", (uint32_t)[self.view.gestureRecognizers count]);
     NSLog(@"streamview gestures: %d", (uint32_t)[_streamView.gestureRecognizers count]);
@@ -626,9 +639,11 @@
     _inactivityTimer = nil;
     
     _streamView = [[StreamView alloc] initWithFrame:self.view.frame];
-    
+
+#if !TARGET_OS_TV
     toolBoxViewController = [[ToolboxViewController alloc] init];
     toolBoxViewController.specialEntryDelegate = self;
+#endif
 
     _isRestoringFromPiP = NO;
 
@@ -762,11 +777,14 @@
 }
 
 - (void)handleWidgetLayoutGesture{
+#if !TARGET_OS_TV
     [self configOscLayoutTool];
     [self openWidgetLayoutTool];
+#endif
 }
 
 - (void)openWidgetLayoutTool{
+#if !TARGET_OS_TV
     [_streamView saveStreamViewWidgetChanges];
     _streamView.widgetToolOpened = true;
     [self->_streamView disableOnScreenControls];
@@ -775,9 +793,11 @@
     _layoutOnScreenControlsVC.toolbarStackView.hidden = false;
     _layoutOnScreenControlsVC.toolbarRootView.hidden = false;
     [self presentViewController:_layoutOnScreenControlsVC animated:YES completion:nil];
+#endif
 }
 
 - (void)openWidgetProfileTableWithPickProfile:(BOOL)pickProfile{
+#if !TARGET_OS_TV
     [_streamView saveStreamViewWidgetChanges];
     _streamView.widgetToolOpened = true;
     [self->_streamView disableOnScreenControls];
@@ -788,6 +808,7 @@
     [self presentViewController:_layoutOnScreenControlsVC animated:NO completion:^{
         [self->_layoutOnScreenControlsVC presentProfilesTableViewWithPickProfile:pickProfile];
     }];
+#endif
 }
 
 - (void)bringUpSoftKeyboard{
@@ -952,8 +973,8 @@
 
 - (void) returnToMainFrame {
     [_streamView clearOnScreenWidgets];
-    if(micHandler) [micHandler clean];
 #if !TARGET_OS_TV
+    if(micHandler) [micHandler clean];
     PencilHandler.shared = nil;
 #endif
     
@@ -974,7 +995,9 @@
     
     _extWindow = nil;
     
+#if !TARGET_OS_TV
     if(_streamConfig.redirectMic) [micHandler stopTappingWithStopEngine:true];
+#endif
 
     self.mainFrameViewcontroller.settingsExpandedInStreamView = false; // reset this flag to false
 }
@@ -1317,6 +1340,7 @@
 
 - (void) stageComplete:(const char*)stageName {
     _micStreamInitialized = false;
+#if !TARGET_OS_TV
     if(strcmp(stageName, "mic stream establishment")==0){
         if(self->_streamConfig.redirectMic){
             dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC));
@@ -1328,6 +1352,7 @@
             });
         }
     }
+#endif
     
     if(strcmp(stageName, "mic stream unsupported or unintialized")==0){
         _micStreamInitialized = false;

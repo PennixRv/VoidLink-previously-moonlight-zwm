@@ -66,9 +66,6 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     CustomTapGestureRecognizer *keyboardToggleRecognizer;
     UIPanGestureRecognizer *discreteMouseWheelRecognizer;
     UIPanGestureRecognizer *continuousMouseWheelRecognizer;
-#if defined(__IPHONE_16_1) || defined(__TVOS_16_1)
-    UIHoverGestureRecognizer *stylusHoverRecognizer;
-#endif
     CGFloat HeightViewLiftedTo;
     UILabel* keyboardToggleTip;
     
@@ -103,6 +100,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     [self addSubview:keyInputField];
     
     isInputingText = false;
+#if !TARGET_OS_TV
     [self refreshKeyboardToggleRecognizer:settings.keyboardToggleFingers.intValue]; //will be
     keyboardToggleTip = [[UILabel alloc] init];
     // keyboardToggleTip.frame = CGRectMake(0, 0, 35, 100);
@@ -115,6 +113,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     keyboardToggleTip.numberOfLines = 1;
     keyboardToggleTip.layer.cornerRadius = 10;
     keyboardToggleTip.clipsToBounds = true;
+#endif
     
     // if(settings.touchMode.intValue == NativeTouchOnly) [self addGestureRecognizer:keyboardToggleRecognizer]; //keep legacy approach in pure native mode
     // else [self->streamFrameTopLayerView addGestureRecognizer:keyboardToggleRecognizer]; //add to the superview in other modes
@@ -122,8 +121,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     // [self->streamFrameTopLayerView addGestureRecognizer:keyboardToggleRecognizer]; //add to the superview in other modes
     
 #if TARGET_OS_TV
-    // tvOS requires RelativeTouchHandler to manage Apple Remote input
-    self->touchHandler = [[RelativeTouchHandler alloc] initWithView:self];
+    // tvOS build: keep StreamView as a container for video rendering but disable
+    // touch-based input paths (remote "presses" are handled in StreamFrameViewController).
+    self->touchHandler = nil;
 #else
     
     PencilHandler.shared = [[PencilHandler alloc] initWithStreamView:self settings:settings];
@@ -247,6 +247,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification{
+#if TARGET_OS_TV
+    (void)notification;
+    return;
+#else
     // NSLog(@"keyboard will show markmark %f", CACurrentMediaTime());
     if(settings.liftStreamViewForKeyboard && !isInputingText){
         NSDictionary *userInfo = notification.userInfo;
@@ -268,6 +272,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         [keyboardToggleTip removeFromSuperview];
     }
     NSLog(@"keyboard will show %f", CACurrentMediaTime());
+#endif
 }
 
 - (UIViewController *)parentViewController {
@@ -436,7 +441,12 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 // we'll enable on screen buttons, and disable on screen controllers for absolute touch
 - (bool) isOscEnabled{
+#if TARGET_OS_TV
+    // tvOS build currently doesn't use on-screen (touch) widgets/controls.
+    return false;
+#else
     return (settings.touchMode.intValue == RelativeTouch || settings.touchMode.intValue == NativeTouch || settings.touchMode.intValue == AbsoluteTouch || settings.touchMode.intValue == TouchDisabled) && settings.onscreenControls.intValue != OnScreenControlsLevelOff;
+#endif
 }
 
 // we'll enable on screen buttons, and disable on screen controllers for absolute touch
@@ -454,7 +464,12 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void) reloadOnScreenControlsWith:(ControllerSupport*)controllerSupport
-                         andConfig:(StreamConfiguration*)streamConfig {
+                          andConfig:(StreamConfiguration*)streamConfig {
+#if TARGET_OS_TV
+    (void)controllerSupport;
+    (void)streamConfig;
+    return;
+#endif
     
     // we'll render on-screen controllers on the toplayer too.
     _onScreenControls = [[OnScreenControls alloc] initWithView:self->_streamFrameTopLayerView controllerSup:controllerSupport streamConfig:streamConfig];
@@ -546,6 +561,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void) reloadOnScreenWidgetViews:(bool)reload{
+#if TARGET_OS_TV
+    (void)reload;
+    return;
+#endif
     NSLog(@"reloadOnScreenWidgets in streamview %f", CACurrentMediaTime());
     
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -867,7 +886,12 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 #endif
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-#if !TARGET_OS_TV
+#if TARGET_OS_TV
+    [super touchesBegan:touches withEvent:event];
+    return;
+#else
+    NSMutableSet* nonPencilTouches = nil;
+
     // if (@available(iOS 13.4, *)) {
     // cancel restriction of native touch for iOS13.3 & lower
     if (settings.touchMode.intValue == NativeTouchOnly) {
@@ -880,16 +904,14 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             [pencilTouches addObject:touch];
         }
     }
-    NSMutableSet* nonPencilTouches;
     if(pencilTouches.count>0){
         [_pencilHandler touchesBegan:pencilTouches withEvent:event];
         nonPencilTouches = [touches mutableCopy];
         [nonPencilTouches minusSet:pencilTouches];
     }
     
-#endif
     if ([self handleMouseButtonEvent:BUTTON_ACTION_PRESS
-                          forTouches:touches
+                          forTouches:nonPencilTouches ? nonPencilTouches : touches
                            withEvent:event]) {
         // If it's a mouse event, we're done
         return;
@@ -906,6 +928,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         [self->touchHandler touchesBegan:targetTouches withEvent:event];
     }
     else if(![_onScreenControls handleTouchDownEvent:targetTouches]) [touchHandler touchesBegan:targetTouches withEvent:event];
+#endif
 }
 
 - (UIBarButtonItem *)createButtonWithImageNamed:(NSString *)imageName backgroundColor:(UIColor *)backgroundColor target:(id)target action:(SEL)action keyCode:(NSInteger)keyCode isToggleable:(BOOL)isToggleable {
@@ -1029,40 +1052,41 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
-#if !TARGET_OS_TV
-    
+#if TARGET_OS_TV
+    [super touchesMoved:touches withEvent:event];
+    return;
+#else
     if (settings.touchMode.intValue == NativeTouchOnly) {
         [touchHandler touchesMoved:touches withEvent:event];
         return; //This is a native touch oriented fork, in pure native touch mode, this call back method deals with native touch only.
     }
-    
+
+    // iOS 13.4 mouse support (indirect pointer)
+    if (@available(iOS 13.4, *)) {
+        UITouch *touch = [touches anyObject];
+        if (touch.type == UITouchTypeIndirectPointer) {
+            if (@available(iOS 14.0, *)) {
+                if ([GCMouse current] != nil) {
+                    // We'll handle this with GCMouse. Do nothing here.
+                    return;
+                }
+            }
+
+            // Cursor movement without a button held down is handled
+            // in pointerInteraction:regionForRequest:defaultRegion.
+            if(!isPencilHovering) [self updateCursorLocation:[touch locationInView:self] isMouse:YES];
+            return;
+        }
+    }
+
     NSMutableSet* pencilTouches = [NSMutableSet set];
     for (UITouch* touch in touches) {
         if (touch.type == UITouchTypePencil) {
             [pencilTouches addObject:touch];
         }
-        if (@available(iOS 13.4, *)) {
-            UITouch *touch = [touches anyObject];
-            if (touch.type == UITouchTypeIndirectPointer) {
-                if (@available(iOS 14.0, *)) {
-                    if ([GCMouse current] != nil) {
-                        // We'll handle this with GCMouse. Do nothing here.
-                        return;
-                    }
-                }
-                // We must handle this event to properly support
-                // drags while the middle, X1, or X2 mouse buttons are
-                // held down. For some reason, left and right buttons
-                // don't require this, but we do it anyway for them too.
-                // Cursor movement without a button held down is handled
-                // in pointerInteraction:regionForRequest:defaultRegion.
-                if(!isPencilHovering) [self updateCursorLocation:[touch locationInView:self] isMouse:YES];
-                return;
-            }
-        }
-#endif
     }
-    NSMutableSet* nonPencilTouches;
+
+    NSMutableSet* nonPencilTouches = nil;
     if(pencilTouches.count>0){
         [_pencilHandler touchesMoved:pencilTouches withEvent:event];
         nonPencilTouches = [touches mutableCopy];
@@ -1070,13 +1094,14 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     }
 
     hasUserInteracted = YES;
-    
+
     NSSet* targetTouches = nonPencilTouches ? nonPencilTouches : touches;
     if(self->settings.touchMode.intValue == NativeTouch || self->settings.touchMode.intValue == RelativeTouch){
         [self->touchHandler touchesMoved:targetTouches withEvent:event];
         [self->_onScreenControls handleTouchMovedEvent:targetTouches];
     }
     else if(![self->_onScreenControls handleTouchMovedEvent:targetTouches]) [self->touchHandler touchesMoved:targetTouches withEvent:event];
+#endif
 }
 
 - (void) handleKeyCombos:(UIPress*) press{
@@ -1144,7 +1169,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
-#if !TARGET_OS_TV
+#if TARGET_OS_TV
+    [super touchesEnded:touches withEvent:event];
+    return;
+#else
+    NSMutableSet* nonPencilTouches = nil;
 
     if (settings.touchMode.intValue == NativeTouchOnly) {
         [touchHandler touchesEnded:touches withEvent:event];
@@ -1157,14 +1186,12 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             [pencilTouches addObject:touch];
         }
     }
-    NSMutableSet* nonPencilTouches;
     if(pencilTouches.count>0){
         [_pencilHandler touchesEnded:pencilTouches withEvent:event];
         nonPencilTouches = [touches mutableCopy];
         [nonPencilTouches minusSet:pencilTouches];
     }
 
-#endif
     if ([self handleMouseButtonEvent:BUTTON_ACTION_RELEASE
                           forTouches:nonPencilTouches ? nonPencilTouches : touches
                            withEvent:event]) {
@@ -1182,9 +1209,14 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         [self->_onScreenControls handleTouchUpEvent:targetTouches];
     }
     else if(![_onScreenControls handleTouchUpEvent:targetTouches]) [touchHandler touchesEnded:targetTouches withEvent:event];
+#endif
 }
 
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+#if TARGET_OS_TV
+    [super touchesCancelled:touches withEvent:event];
+    return;
+#endif
     [touchHandler touchesCancelled:touches withEvent:event];
 #if !TARGET_OS_TV
     if (settings.touchMode.intValue == NativeTouchOnly) return; //This is a native touch oriented fork, in pure native touch mode, this call back method deals with native touch only.
@@ -1539,22 +1571,32 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)switchPencilHover{
+#if !TARGET_OS_TV
     [_pencilHandler switchPencilHover];
+#endif
 }
 
 - (void)enablePencilHover{
+#if !TARGET_OS_TV
     [_pencilHandler enablePencilHover];
+#endif
 }
 
 - (void)disablePencilHover{
+#if !TARGET_OS_TV
     [_pencilHandler disablePencilHover];
+#endif
 }
 
 - (void)setAllowSingleTouchEnabled:(BOOL)enabled{
+#if !TARGET_OS_TV
     if([touchHandler isKindOfClass:[NativeTouchHandler class]]){
         NativeTouchHandler* handler = (NativeTouchHandler* )touchHandler;
         [handler setAllowSingleTouchEnabled:enabled];
     }
+#else
+    (void)enabled;
+#endif
 }
 
 - (void)cleanUp{
