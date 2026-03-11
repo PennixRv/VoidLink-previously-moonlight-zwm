@@ -62,6 +62,14 @@ class ThemeManager: NSObject {
             )
 
         default:
+            #if os(tvOS)
+            return UIColor(
+                red: 28.0/255.0,
+                green: 28.0/255.0,
+                blue: 30.0/255.0,
+                alpha: 1
+            )
+            #else
             if #available(iOS 13.0, *) {
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.secondarySystemBackground.resolvedColor(with: darkTraits)
@@ -73,6 +81,7 @@ class ThemeManager: NSObject {
                     alpha: 1
                 )
             }
+            #endif
         }
     }
     
@@ -89,12 +98,21 @@ class ThemeManager: NSObject {
             )
 
         default:
+            #if os(tvOS)
+            return UIColor(
+                red: 28.0/255.0,
+                green: 28.0/255.0,
+                blue: 30.0/255.0,
+                alpha: 1
+            )
+            #else
             if #available(iOS 13.0, *) {
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.systemGroupedBackground.resolvedColor(with: darkTraits)
             } else {
                 return UIColor.black
             }
+            #endif
         }
     }
     
@@ -127,6 +145,14 @@ class ThemeManager: NSObject {
         case .light:
             return UIColor.white
         default:
+            #if os(tvOS)
+            return UIColor(
+                red: 44.0/255.0,
+                green: 44.0/255.0,
+                blue: 46.0/255.0,
+                alpha: 1
+            )
+            #else
             if #available(iOS 13.0, *) {
                 // return UIColor.secondarySystemBackground
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
@@ -139,6 +165,7 @@ class ThemeManager: NSObject {
                     alpha: 1
                 )
             }
+            #endif
         }
     }
 

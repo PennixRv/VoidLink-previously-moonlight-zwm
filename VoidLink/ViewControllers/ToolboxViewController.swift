@@ -100,8 +100,10 @@ import UIKit
         contentView.backgroundColor = viewBackgroundColor
         tableView.backgroundColor = .clear
         tableView.rowHeight = isIPhone() ? 47 : 60
+        #if !os(tvOS)
         tableView.separatorColor = .white.withAlphaComponent(0.33)
         tableView.separatorInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        #endif
         // Configure buttons
         addButton.setTitle(SwiftLocalizationHelper.localizedString(forKey: "Add / Duplicate"), for: .normal)
         deleteButton.setTitle(SwiftLocalizationHelper.localizedString(forKey: "Delete"), for: .normal)
