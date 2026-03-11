@@ -17,6 +17,20 @@ static const CGFloat cellOffsetY = 20;
     UIViewController* parentVC;
 }
 
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.clipsToBounds = NO;
+        self.contentView.clipsToBounds = NO;
+        self.layer.masksToBounds = NO;
+        self.layer.shadowColor = [UIColor blackColor].CGColor;
+        self.layer.shadowOpacity = 0.0;
+        self.layer.shadowOffset = CGSizeZero;
+        self.layer.shadowRadius = 0.0;
+    }
+    return self;
+}
+
 - (void)prepareForReuse {
     [super prepareForReuse];
     [self.cardView removeFromSuperview];
@@ -77,6 +91,10 @@ static const CGFloat cellOffsetY = 20;
 @implementation HostCollectionViewController{
     UICollectionViewFlowLayout *layout;
     CGFloat _horizontalPadding;
+#if TARGET_OS_TV
+    NSIndexPath* _lastFocusedIndexPath;
+    UILongPressGestureRecognizer* _remoteSelectLongPressRecognizer;
+#endif
 }
 
 - (instancetype)init {
@@ -115,8 +133,96 @@ static const CGFloat cellOffsetY = 20;
     [self.collectionView registerClass:[HostCell class] forCellWithReuseIdentifier:@"HostCell"];
     self.collectionView.alwaysBounceVertical = NO;
     self.collectionView.showsVerticalScrollIndicator = NO;
+
+#if TARGET_OS_TV
+    self.collectionView.remembersLastFocusedIndexPath = YES;
+
+    // tvOS: long-press Select to show host actions (Wake/Remove/etc).
+    // We implement this at the collection view level to avoid relying on per-card gesture routing.
+    _remoteSelectLongPressRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(remoteSelectLongPressed:)];
+    _remoteSelectLongPressRecognizer.allowedPressTypes = @[@(UIPressTypeSelect)];
+    _remoteSelectLongPressRecognizer.minimumPressDuration = 0.6;
+    _remoteSelectLongPressRecognizer.cancelsTouchesInView = YES;
+    [self.collectionView addGestureRecognizer:_remoteSelectLongPressRecognizer];
+#endif
+
     [self updateTheme];
 }
+
+#if TARGET_OS_TV
+- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath == nil || indexPath.item >= self.items.count) {
+        return;
+    }
+
+    TemporaryHost *host = self.items[indexPath.item];
+    UIViewController *parentVC = self.parentViewController;
+    if ([parentVC conformsToProtocol:@protocol(HostCardActionDelegate)] &&
+        [(id)parentVC respondsToSelector:@selector(appButtonTappedForHost:)]) {
+        [(id<HostCardActionDelegate>)parentVC appButtonTappedForHost:host];
+    }
+}
+
+- (void)remoteSelectLongPressed:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan) {
+        return;
+    }
+
+    NSIndexPath *ip = _lastFocusedIndexPath;
+    if (ip == nil || ip.item >= self.items.count) {
+        return;
+    }
+
+    TemporaryHost *host = self.items[ip.item];
+    UIView *anchorView = [self.collectionView cellForItemAtIndexPath:ip] ?: self.collectionView;
+    UIViewController *parentVC = self.parentViewController;
+    if ([parentVC conformsToProtocol:@protocol(HostCardActionDelegate)] &&
+        [(id)parentVC respondsToSelector:@selector(hostCardLongPressed:view:)]) {
+        [(id<HostCardActionDelegate>)parentVC hostCardLongPressed:host view:anchorView];
+    }
+}
+
+- (void)collectionView:(UICollectionView *)collectionView didUpdateFocusInContext:(UICollectionViewFocusUpdateContext *)context withCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    _lastFocusedIndexPath = context.nextFocusedIndexPath;
+
+    UICollectionViewCell *prevCell = context.previouslyFocusedIndexPath ? [collectionView cellForItemAtIndexPath:context.previouslyFocusedIndexPath] : nil;
+    UICollectionViewCell *nextCell = context.nextFocusedIndexPath ? [collectionView cellForItemAtIndexPath:context.nextFocusedIndexPath] : nil;
+
+    CGFloat scaleFactor = GenericUtils.liquidGlassEnabled ? 1.05 : 1.06;
+
+    void (^applyUnfocused)(UICollectionViewCell *) = ^(UICollectionViewCell *cell) {
+        if (!cell) return;
+        cell.layer.zPosition = 0;
+        cell.transform = CGAffineTransformIdentity;
+        cell.layer.shadowOpacity = 0.0;
+        cell.layer.shadowOffset = CGSizeZero;
+        cell.layer.shadowRadius = 0.0;
+    };
+
+    void (^applyFocused)(UICollectionViewCell *) = ^(UICollectionViewCell *cell) {
+        if (!cell) return;
+        cell.clipsToBounds = NO;
+        cell.contentView.clipsToBounds = NO;
+        cell.layer.masksToBounds = NO;
+        cell.layer.shadowColor = [UIColor blackColor].CGColor;
+
+        CGAffineTransform t = CGAffineTransformMakeScale(scaleFactor, scaleFactor);
+        CGFloat scaleDiff = (cell.bounds.size.height * scaleFactor - cell.bounds.size.height) / 2.0;
+        t = CGAffineTransformTranslate(t, 0, -scaleDiff);
+
+        cell.layer.zPosition = 100;
+        cell.transform = t;
+        cell.layer.shadowOffset = CGSizeMake(0, 18);
+        cell.layer.shadowOpacity = GenericUtils.liquidGlassEnabled ? 0.14 : 0.20;
+        cell.layer.shadowRadius = 22.0;
+    };
+
+    [coordinator addCoordinatedAnimations:^{
+        applyUnfocused(prevCell);
+        applyFocused(nextCell);
+    } completion:nil];
+}
+#endif
 
 
 #pragma mark - Data control

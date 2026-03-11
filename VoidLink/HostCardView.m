@@ -10,6 +10,7 @@
 #import "LocalizationHelper.h"
 #import "VoidLink-Swift.h"
 #import "FixedTintImageView.h"
+#import <TargetConditionals.h>
 
 
 @interface HostCardView ()
@@ -66,8 +67,12 @@ static const float REFRESH_CYCLE = 2.0f;
         defaultGreen = [UIColor colorWithRed:52.0/255.0 green:199.0/255.0 blue:89.0/255.0 alpha:1.0];
         // self.userIterfaceStyle = UIUserInterfaceStyleLight
 
+#if !TARGET_OS_TV
+        // tvOS: long-press Select is handled at the collection view level, so the card should be display-only
+        // to avoid focus traps (multiple focusable buttons inside a single cell).
         UILongPressGestureRecognizer* longPressRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(hostCardLongPressed:)];
-            [self addGestureRecognizer:longPressRecognizer];
+        [self addGestureRecognizer:longPressRecognizer];
+#endif
         
         [self createBackgroundLayer];
         [self setupUI];
@@ -291,6 +296,7 @@ static const float REFRESH_CYCLE = 2.0f;
         [self.statusIcon.widthAnchor constraintEqualToConstant:16*_sizeFactor]
     ]];
     
+#if !TARGET_OS_TV
     // 启动应用按钮
     self.appButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.appButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -424,6 +430,7 @@ static const float REFRESH_CYCLE = 2.0f;
         [self.transparentButton.topAnchor constraintEqualToAnchor:self.topAnchor constant:0],
         [self.transparentButton.bottomAnchor constraintEqualToAnchor:self.separatorLine.topAnchor],
     ]];
+#endif
     
     _widthConstraint.constant = _cardContentpadding*2 + appButtonWidth + 15*_sizeFactor + launchButtonWidth;
     _heightConstraint.constant = _cardContentpadding*2 + _iconBackgroundView.frame.size.height + iconAndButtonSpacing + buttonHeight + 1;

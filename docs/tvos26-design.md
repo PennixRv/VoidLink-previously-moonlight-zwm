@@ -109,6 +109,11 @@ tvOS UI 的核心不是“触摸点”，而是 **Focus（焦点）**：
 
 这里是最关键的“tvOS vs iOS”差异点，我建议先确定映射再写代码，否则会反复推倒。
 
+> ✅ 已确认（2026-03-11）：
+> - 串流内：`Play/Pause = 右键`，`Menu = 返回/呼出 Overlay`
+> - Hosts 页：`Select` 进入 Apps 列表
+> - 视觉第一版“克制一些”，后续逐步增强动效与质感
+
 ### 3.1 主界面（Hosts/Apps）
 
 - Select：主动作（进入/启动）。
@@ -120,16 +125,13 @@ tvOS UI 的核心不是“触摸点”，而是 **Focus（焦点）**：
 
 现状：`Menu=右键`，`双击Menu=退出`，`Play/Pause=断开`。
 
-建议（更贴合 tvOS 系统语义）：
+最终建议（更贴合 tvOS 系统语义，且已确认）：
 
 - 触控板 Pan：鼠标移动（已实现）。
 - Select Click：左键（已实现）。
 - Long-press Select：左键按住拖拽（已实现）。
-- Play/Pause：右键（或呼出 overlay，二选一）。
-- Menu：呼出“串流 Overlay”，Overlay 内提供 Disconnect/Back/Send Key/Stats 等；在 Overlay 中再次 Menu 才真正退出。
-
-> 需要你确认：你更希望 `Menu` 保持“系统返回”，还是继续当“右键”？  
-> 我倾向让 `Play/Pause=右键`，`Menu=返回/Overlay`，这样更不容易和 tvOS 的返回逻辑冲突。
+- Play/Pause：右键（Right Click）。
+- Menu：呼出“串流 Overlay”（或在 Overlay 打开时关闭 Overlay）。Overlay 内提供 Disconnect/Send Keys/Stats 等能力。
 
 ---
 
@@ -267,9 +269,8 @@ tvOS UI 的核心不是“触摸点”，而是 **Focus（焦点）**：
 
 ---
 
-## 8. 需要你确认的问题（请逐条回复）
+## 8. 已确认事项（2026-03-11）
 
-1. 串流内按键语义：你是否接受把 `Play/Pause` 改为 **右键**，把 `Menu` 改为 **返回/呼出 Overlay**（更贴近 tvOS）？  
-2. Hosts 页 Select 的默认动作：你希望 Select 进入 Apps 列表，还是直接启动 Desktop/最近一次？  
-3. 视觉强度：你希望更接近 `ATV-Bilibili-demo` 的“明显 scale + 阴影 + 视差”，还是更克制一点以减少眩晕/掉帧风险？
-
+- 串流内：`Play/Pause = 右键`，`Menu = 返回/呼出 Overlay`
+- Hosts 页：`Select` 进入 Apps 列表
+- 视觉第一版“克制一些”，后续逐步增强动效与质感
