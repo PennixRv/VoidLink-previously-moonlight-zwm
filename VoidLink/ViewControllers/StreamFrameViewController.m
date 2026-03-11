@@ -42,6 +42,12 @@
 #import <AVKit/UIWindow.h>
 #endif
 
+// MainFrameViewController exposes navigation helpers in its .m (not in the public header).
+// We declare the selectors we need here to avoid warnings and keep tvOS flow explicit.
+@interface MainFrameViewController (VoidLinkTVOSNavigation)
+- (void)switchToHostView;
+@end
+
 @interface AVDisplayCriteria()
 @property(readonly) int videoDynamicRange;
 @property(readonly, nonatomic) float refreshRate;
@@ -1151,6 +1157,15 @@
 }
 
 - (void) returnToMainFrame {
+#if TARGET_OS_TV
+    // Per tvOS UX: always return to Hosts home after disconnect.
+    // MainFrameViewController may still be on the navigation stack below us.
+    [self tvosHideActionOverlay];
+    if (self.mainFrameViewcontroller != nil) {
+        [self.mainFrameViewcontroller switchToHostView];
+    }
+#endif
+
     [_streamView clearOnScreenWidgets];
 #if !TARGET_OS_TV
     if(micHandler) [micHandler clean];
