@@ -14,7 +14,6 @@
 #import "MainFrameViewController.h"
 #import "VideoDecoderRenderer.h"
 #import "StreamManager.h"
-#import "SceneDelegate.h"
 #import "ControllerSupport.h"
 #import "DataManager.h"
 #import "PaddedLabel.h"
@@ -26,7 +25,11 @@
 #import "VoidLink-Swift.h"
 #import "OSCProfilesManager.h"
 #import "VoidLink-Swift.h"
+
+#if !TARGET_OS_TV
+#import "SceneDelegate.h"
 #import "NativeTouchPointer.h"
+#endif
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -505,6 +508,7 @@
     _viewJustLoaded = false;
     _deviceWindow = self.view.window;
     previousOnScreenWidgetEnabled = [_streamView isOnScreenWidgetEnabled];
+#if !TARGET_OS_TV
     if (@available(iOS 13.0, *)) {
         UIScreen *currentScreen = self.view.window.windowScene.screen;
         if (UIScreen.screens.count > 1 && [self isAirPlayEnabled] && currentScreen == UIScreen.mainScreen) {
@@ -525,6 +529,10 @@
         [self->_streamView insertSubview:self->_streamVideoRenderView atIndex:0];
         // Fallback on earlier versions
     }
+#else
+    // tvOS doesn't support external display scenes like iPadOS Stage Manager / AirPlay source.
+    [self->_streamView insertSubview:self->_streamVideoRenderView atIndex:0];
+#endif
 
     self->_streamView.originalFrame = self->_streamView.frame;
     
@@ -535,6 +543,7 @@
 
     // check to see if external screen is connected/disconnected
 
+#if !TARGET_OS_TV
     [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector(extScreenDidConnect:)
                                                  name: UIScreenDidConnectNotification
@@ -544,6 +553,7 @@
                                              selector: @selector(extScreenDidDisconnect:)
                                                  name: UIScreenDidDisconnectNotification
                                                object: nil];
+#endif
    
 #if !TARGET_OS_TV
     [[self revealViewController] setPrimaryViewController:self];
@@ -887,7 +897,9 @@
             self.metalViewController = nil;
             NSLog(@"Metal renderer stopped and cleaned up.");
         }
+#if !TARGET_OS_TV
         [NativeTouchPointer cleanUpContext];
+#endif
         [[NSNotificationCenter defaultCenter] removeObserver:self];
         for(UIView* view in self.view.subviews){
             [view removeFromSuperview];
@@ -1004,9 +1016,11 @@
     
     // Reset display mode back to default
     [self updatePreferredDisplayMode:NO];
+#if !TARGET_OS_TV
     if (@available(iOS 13.0, *)) {
         [SceneDelegate clearExternalDisplayRenderView];
     }
+#endif
 
     if (_settings.enablePIP) {
         [self cleanupPiPController];
@@ -1031,6 +1045,10 @@
 // External Screen connected
 - (void)extScreenDidConnect:(NSNotification *)notification {
     Log(LOG_I, @"External Screen Connected");
+#if TARGET_OS_TV
+    (void)notification;
+    return;
+#else
     if ([self isAirPlayEnabled] && [notification.object isKindOfClass:[UIScreen class]]) {
         // UIScreen *extScreen = (UIScreen *)notification.object;
         if (_streamVideoRenderView) {
@@ -1045,11 +1063,16 @@
              Log(LOG_W, @"_streamVideoRenderView is nil when external screen connected.");
         }
     }
+#endif
 }
 
 // External Screen disconnected
 - (void)extScreenDidDisconnect:(NSNotification *)notification {
     Log(LOG_I, @"External Screen Disconnected");
+#if TARGET_OS_TV
+    (void)notification;
+    return;
+#else
     if(UIScreen.screens.count < 2) {
         if (@available(iOS 13.0, *)) {
             [SceneDelegate clearExternalDisplayRenderView];
@@ -1065,6 +1088,7 @@
         NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
         [nc postNotificationName:@"ScreenChanged" object:self]; // Your existing notification
     }
+#endif
 }
 
 - (bool)shallDisableGyroHotSwitch{
@@ -1072,17 +1096,28 @@
 }
 
 - (BOOL) isAirPlaying{
+#if TARGET_OS_TV
+    return NO;
+#else
     if (_settings.externalDisplayMode.intValue == 1 && _streamVideoRenderView) {
         return _streamVideoRenderView.hidden;
     }
     return NO;
+#endif
 }
 
 - (BOOL) isAirPlayEnabled{
+#if TARGET_OS_TV
+    return NO;
+#else
     return _settings.externalDisplayMode.intValue == 1;
+#endif
 }
 
 - (void) reloadAirPlayConfig{
+#if TARGET_OS_TV
+    return;
+#else
     if (UIScreen.screens.count == 1){return;}
     if (![self isAirPlaying] && [self isAirPlayEnabled]){
         if (@available(iOS 13.0, *)) {
@@ -1093,6 +1128,7 @@
             [SceneDelegate clearExternalDisplayRenderView];
         }
     }
+#endif
 }
 
 - (void) handleViewResize{
