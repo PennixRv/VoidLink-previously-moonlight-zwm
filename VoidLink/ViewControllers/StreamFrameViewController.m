@@ -319,6 +319,15 @@
 }
 
 - (void)configZoomGestureAndAddStreamView{
+#if TARGET_OS_TV
+    // tvOS doesn't use the iOS touch modes (absolute/relative/native touch).
+    // Keep StreamView as a simple container for the video render view.
+    if([_streamView.superview isKindOfClass:[UIScrollView class]]){
+        [_streamView removeFromSuperview];
+    }
+    [self.view insertSubview:_streamView atIndex:0];
+    return;
+#else
     if (_settings.touchMode.intValue == AbsoluteTouch && !_settings.passthroughGestures) {
         if(!_scrollView) _scrollView = [[UIScrollView alloc] initWithFrame:self.view.frame];
 #if !TARGET_OS_TV
@@ -346,6 +355,7 @@
         
         [self.view insertSubview:_streamView atIndex:0];
     }
+#endif
 }
 
 - (void)reConfigStreamViewRealtime {
@@ -380,7 +390,9 @@
 #endif
     [self configZoomGestureAndAddStreamView];
     [self->_streamView disableOnScreenControls]; //don't know why but this must be called outside the streamview class, just put it here. execute in streamview class cause hang
+#if !TARGET_OS_TV
     [self.mainFrameViewcontroller reloadStreamConfig]; // reload streamconfig
+#endif
     
 #if !TARGET_OS_TV
     if([MicHandler permissionGranted] && _settings.redirectMic){
@@ -760,7 +772,7 @@
     [self.view addSubview:_stageLabel];
     [self.view addSubview:_spinner];
     [self.view addSubview:_tipLabel];
-
+    
     if ([_settings.renderingBackend intValue] == RENDER_METAL) {
         // Metal view for video
         Log(LOG_I, @"StreamFrameViewController creating MetalViewController");
@@ -775,7 +787,9 @@
         [self.metalViewController didMoveToParentViewController:self];
     }
     
+#if !TARGET_OS_TV
     _mainFrameViewcontroller.sessionLaunchedWithAbsoluteTouch = _settings.touchMode.intValue == AbsoluteTouch;
+#endif
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification{
@@ -1009,7 +1023,9 @@
     if(_streamConfig.redirectMic) [micHandler stopTappingWithStopEngine:true];
 #endif
 
+#if !TARGET_OS_TV
     self.mainFrameViewcontroller.settingsExpandedInStreamView = false; // reset this flag to false
+#endif
 }
 
 // External Screen connected
@@ -1194,9 +1210,11 @@
 }
 
 - (void)expandSettingsView{
+#if !TARGET_OS_TV
     self.mainFrameViewcontroller.settingsExpandedInStreamView = true; //notify mainFrameViewContorller that this is a setting expansion in stream view, some settings shall be disabled.
     [_streamView saveStreamViewWidgetChanges];
     [self.mainFrameViewcontroller expandSettingsView];
+#endif
 }
 
 - (void)edgeSwiped{
@@ -1215,12 +1233,14 @@
 
 - (void)disconnectAndQuitApp{
     [self returnToMainFrame];
+#if !TARGET_OS_TV
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         sleep(1.5);
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.mainFrameViewcontroller quitRunningApp];
         });
     });
+#endif
 }
 
 - (void) connectionStarted {
