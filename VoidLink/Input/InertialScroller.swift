@@ -6,6 +6,8 @@
 //  Copyright © 2025 True砖家 on Bilibili. All rights reserved.
 //
 
+import CoreGraphics
+
 class InertialScroller {
     public var decelerationRateX: CGFloat
     public var decelerationRateY: CGFloat
