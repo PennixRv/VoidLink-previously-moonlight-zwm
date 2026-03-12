@@ -250,7 +250,117 @@
 			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
+			<string>Advanced Video</string>
+			<key>FooterText</key>
+			<string>These options can affect performance and stability. If streaming issues occur, reset them to defaults.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Rendering Backend</string>
+			<key>Key</key>
+			<string>renderingBackend</string>
+			<key>DefaultValue</key>
+			<string>0</string>
+			<key>Values</key>
+			<array>
+				<string>0</string>
+				<string>1</string>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>AVSampleBuffer (Default)</string>
+				<string>Metal (Experimental)</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Frame Queue Size</string>
+			<key>Key</key>
+			<string>frameQueueSize</string>
+			<key>DefaultValue</key>
+			<string>1</string>
+			<key>Values</key>
+			<array>
+				<string>0</string>
+				<string>1</string>
+				<string>2</string>
+				<string>3</string>
+				<string>4</string>
+				<string>5</string>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>0 (Lowest Latency)</string>
+				<string>1 (Default)</string>
+				<string>2</string>
+				<string>3</string>
+				<string>4</string>
+				<string>5 (Smoothest)</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Enable YUV 4:4:4</string>
+			<key>Key</key>
+			<string>enableYUV444</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Full Color Range</string>
+			<key>Key</key>
+			<string>fullRange</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
 			<string>Troubleshooting</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Overlay Opacity</string>
+			<key>Key</key>
+			<string>graphOpacity</string>
+			<key>DefaultValue</key>
+			<string>50</string>
+			<key>Values</key>
+			<array>
+				<string>25</string>
+				<string>50</string>
+				<string>75</string>
+				<string>100</string>
+			</array>
+			<key>Titles</key>
+			<array>
+				<string>25%</string>
+				<string>50% (Default)</string>
+				<string>75%</string>
+				<string>100%</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Debug Graphs</string>
+			<key>Key</key>
+			<string>enableGraphs</string>
+			<key>DefaultValue</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>Type</key>
