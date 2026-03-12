@@ -47,6 +47,8 @@
 - (void)updatePreferredDisplayMode:(BOOL)streamActive;
 - (void)setUserInteractionEnabledForStreamView:(bool)enabled;
 - (bool)shallDisableGyroHotSwitch;
+#if !TARGET_OS_TV
 - (void)loadGameProfileConfigs:(OSCProfile* )profile;
+#endif
 
 @end

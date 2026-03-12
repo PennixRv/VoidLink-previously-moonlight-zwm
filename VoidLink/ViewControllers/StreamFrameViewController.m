@@ -19,12 +19,14 @@
 #import "PaddedLabel.h"
 #import "ImGuiRenderer.h"
 #import "MetalVideoRenderer.h"
-#import "CustomEdgeSlideGestureRecognizer.h"
-#import "CustomTapGestureRecognizer.h"
 #import "LocalizationHelper.h"
 #import "VoidLink-Swift.h"
+
+#if !TARGET_OS_TV
+#import "CustomEdgeSlideGestureRecognizer.h"
+#import "CustomTapGestureRecognizer.h"
 #import "OSCProfilesManager.h"
-#import "VoidLink-Swift.h"
+#endif
 
 #if !TARGET_OS_TV
 #import "SceneDelegate.h"
@@ -57,7 +59,9 @@
 @implementation StreamFrameViewController {
     ControllerSupport *_controllerSupport;
     TemporarySettings *_settings;
+#if !TARGET_OS_TV
     OSCProfile* _oscProfile;
+#endif
     NSTimer *_inactivityTimer;
     NSTimer *_statsUpdateTimer;
     PaddedLabel *_overlayView;
@@ -191,7 +195,11 @@
 
 
 - (bool)isOscLayoutToolEnabled{
+#if TARGET_OS_TV
+    return false;
+#else
     return (_settings.touchMode.intValue == RelativeTouch || _settings.touchMode.intValue == NativeTouch || _settings.touchMode.intValue == AbsoluteTouch || _settings.touchMode.intValue == TouchDisabled) && _settings.onscreenControls.intValue == OnScreenControlsLevelCustom;
+#endif
 }
 
 - (void)setupPiPControllerWithRenderer:(VideoDecoderRenderer *)videoRenderer {    // Ensure we have the renderer and its layer
@@ -395,8 +403,6 @@
     }
 #if !TARGET_OS_TV
     _oscProfile = [[OSCProfilesManager sharedManager:CGRectZero] getSelectedProfile];
-#else
-    _oscProfile = nil;
 #endif
     
     overlayLevel = _settings.statsOverlayLevel.intValue;
@@ -409,7 +415,9 @@
     [self configGestures];
 #endif
     [self configZoomGestureAndAddStreamView];
+#if !TARGET_OS_TV
     [self->_streamView disableOnScreenControls]; //don't know why but this must be called outside the streamview class, just put it here. execute in streamview class cause hang
+#endif
 #if !TARGET_OS_TV
     [self.mainFrameViewcontroller reloadStreamConfig]; // reload streamconfig
 #endif
@@ -427,8 +435,10 @@
     // reload controllerSupport obj, this is mandatory for OSC reload,especially when the stream view is launched without OSC
     [_streamView setupStreamView:_controllerSupport interactionDelegate:self config:self.streamConfig streamFrameTopLayerView:self.view]; //reinitiate setupStreamView process.
         // we got self.view passed to streamView class as the topLayerView, will be useful in many cases
+#if !TARGET_OS_TV
     [self->_streamView reloadOnScreenControlsRealtimeWith:(ControllerSupport*)_controllerSupport
-                                        andConfig:(StreamConfiguration*)_streamConfig]; //reload OSC here.
+                                               andConfig:(StreamConfiguration*)_streamConfig]; //reload OSC here.
+#endif
     
 #if !TARGET_OS_TV
     bool onScreenWidgetSwitched = previousOnScreenWidgetEnabled != [_streamView isOnScreenWidgetEnabled];
@@ -1991,7 +2001,8 @@
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 
-    // handle view size change for on-screen widgets
+#if !TARGET_OS_TV
+    // Handle view size changes for on-screen widgets (iOS-only).
     CGSize oldSize = self.view.bounds.size;
     CGFloat scaleX = size.width  / oldSize.width;
     CGFloat scaleY = size.height / oldSize.height;
@@ -2003,6 +2014,7 @@
             widget.storedCenter = CGPointMake(oldStoredCenter.x * scaleX,oldStoredCenter.y * scaleY);
         } completion:nil];
     }
+#endif
 
     
     dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC));
