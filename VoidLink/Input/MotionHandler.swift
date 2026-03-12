@@ -60,7 +60,8 @@ import CoreMotion
     @objc public func mixPhysicalRightStickAndGyroInput(x: CGFloat, y: CGFloat) {}
     @objc public func mixPhysicalLeftStickAndGyroInput(x: CGFloat, y: CGFloat) {}
 
-    public func startGyroByOnScreenButton(_ sender: OnScreenWidgetView, yawFactor: CGFloat, pitchFactor: CGFloat, rollFactor: CGFloat) {}
+    // Keep a signature compatible with iOS callers, but avoid referencing iOS-only widget types.
+    public func startGyroByOnScreenButton(_ sender: NSObject, yawFactor: CGFloat, pitchFactor: CGFloat, rollFactor: CGFloat) {}
 
     @objc public func startGyroByControllerButton() {}
     @objc public func startGyroUpdate() {}

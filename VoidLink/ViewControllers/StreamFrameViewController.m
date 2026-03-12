@@ -393,7 +393,11 @@
     if (reloadSettings) {
         _settings = [[[DataManager alloc] init] getSettings];  //StreamFrameViewController retrieve the settings here.
     }
+#if !TARGET_OS_TV
     _oscProfile = [[OSCProfilesManager sharedManager:CGRectZero] getSelectedProfile];
+#else
+    _oscProfile = nil;
+#endif
     
     overlayLevel = _settings.statsOverlayLevel.intValue;
     [self setupOverlayView];
@@ -1014,6 +1018,10 @@
 }
 
 - (void)oscLayoutClosed{
+#if TARGET_OS_TV
+    // tvOS build doesn't support OSC/widget layout.
+    return;
+#else
     // Handle the callback
     _streamView.widgetToolOpened = false;
     [self->_streamView disableOnScreenControls]; // add this to get realtime back menu working.
@@ -1021,13 +1029,16 @@
                                         andConfig:(StreamConfiguration*)_streamConfig];
     // [self->_streamView reloadLegacyWidgets];
     [self->_streamView reloadOnScreenWidgetViews:true]; //update keyboard buttons here
+#endif
 }
 
 - (void)setUserInteractionEnabledForStreamView:(bool)enabled{
     _streamView.userInteractionEnabled = enabled;
+#if !TARGET_OS_TV
     for(UIView* view in self.view.subviews){
         if([view isKindOfClass:[OnScreenWidgetView class]]) view.userInteractionEnabled = enabled;
     }
+#endif
 }
 
 - (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView {

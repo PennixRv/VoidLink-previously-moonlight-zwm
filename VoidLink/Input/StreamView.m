@@ -469,7 +469,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     (void)controllerSupport;
     (void)streamConfig;
     return;
-#endif
+#else
     
     // we'll render on-screen controllers on the toplayer too.
     _onScreenControls = [[OnScreenControls alloc] initWithView:self->_streamFrameTopLayerView controllerSup:controllerSupport streamConfig:streamConfig];
@@ -481,10 +481,14 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         onScreenControls.mouseRightClickTapRecognizer = relativeTouchHandler.mouseRightClickTapRecognizer;
     } */
     if([self isOscEnabled]) [_onScreenControls setLevel:(OnScreenControlsLevel)settings.onscreenControls.intValue];
+#endif
 }
 
 
 - (void) clearOnScreenWidgets{
+#if TARGET_OS_TV
+    return;
+#else
     OnScreenWidgetView.isTweakingHighlight = false;
     [OnScreenWidgetView clearMappings];
     for (UIView *subview in self->_streamFrameTopLayerView.subviews) {
@@ -494,6 +498,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             [subview removeFromSuperview];
         }
     }
+#endif
 }
 
 - (CGPoint)denormalizeWidgetPosition:(CGPoint)position {
@@ -514,6 +519,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)saveStreamViewWidgetChanges{
+#if TARGET_OS_TV
+    return;
+#else
     /*
     NSMutableDictionary* relocatedWidgetDict = [NSMutableDictionary dictionary];
     
@@ -558,13 +566,14 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     newProfile.postExclusiveUnfoldedSequences = OnScreenWidgetView.postExclusiveUnfoldedSequences;
     
     [oscProfileMan replaceSelectedProfileWith:newProfile overwriteDefault:YES];
+#endif
 }
 
 - (void) reloadOnScreenWidgetViews:(bool)reload{
 #if TARGET_OS_TV
     (void)reload;
     return;
-#endif
+#else
     NSLog(@"reloadOnScreenWidgets in streamview %f", CACurrentMediaTime());
     
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -700,6 +709,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             [PencilHandler.shared setupPressureLUTWithProfile:oscProfile];
         }
     });
+#endif
 }
 
 - (OnScreenControlsLevel) getCurrentOscState {
