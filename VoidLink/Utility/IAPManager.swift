@@ -130,16 +130,25 @@ import StoreKit
 
     private override init() {
         super.init()
-        if #available(iOS 15.0, *, *) {
+#if !os(tvOS)
+        // tvOS sideload builds don't have a meaningful App Store environment for IAP. Avoid
+        // starting long-lived StoreKit 2 listeners that can complicate crash/boot diagnosis.
+        if #available(iOS 15.0, tvOS 15.0, *) {
             Task {
                 await listenForTransactions()
             }
         }
+#endif
     }
 
     // MARK: - Fetch Products (StoreKit 2)
 
     @objc public func fetchProducts() {
+#if os(tvOS)
+        // tvOS: disable IAP flows. Product IDs in this project are currently iOS bundle-ID scoped,
+        // and sideloaded tvOS builds don't benefit from StoreKit boot-time work.
+        return
+#else
         if #available(iOS 15.0, *, *) {
             Task {
                 await fetchProductsStoreKit2()
@@ -147,6 +156,7 @@ import StoreKit
         } else {
             fetchProductsLegacy()
         }
+#endif
     }
 
     @available(iOS 15.0, *, *)
@@ -188,6 +198,15 @@ import StoreKit
     // MARK: - Purchase (StoreKit 2)
 
     @objc public func purchase(_ product: AddOnProduct) {
+#if os(tvOS)
+        // tvOS: disable IAP flows (see fetchProducts()).
+        NotificationCenter.default.post(
+            name: product.purchaseAbortedNotification(),
+            object: PurchaseInterruption.unlockNow,
+            userInfo: ["interruption": PurchaseInterruption.unlockNow.rawValue]
+        )
+        return
+#else
         if #available(iOS 15.0, *, *) {
             Task {
                 await purchaseStoreKit2(product)
@@ -195,6 +214,7 @@ import StoreKit
         } else {
             purchaseLegacy(product)
         }
+#endif
     }
 
     @available(iOS 15.0, *, *)
@@ -279,6 +299,10 @@ import StoreKit
     // MARK: - Restore (StoreKit 2)
 
     @objc public func restorePurchasesStoreKit2() {
+#if os(tvOS)
+        // tvOS: disable IAP restore flows.
+        return
+#else
         if #available(iOS 15.0, *, *) {
             Task {
                 await restoreStoreKit2()
@@ -287,6 +311,7 @@ import StoreKit
         else{
             restorePurchasesLegacy()
         }
+#endif
     }
 
     @available(iOS 15.0, *, *)
@@ -327,6 +352,11 @@ import StoreKit
         _ product: AddOnProduct,
         completion: @escaping (PurchaseInfo) -> Void
     ) {
+#if os(tvOS)
+        // tvOS: treat as not purchased. (We don't ship/enable IAP for tvOS sideload builds.)
+        completion(PurchaseInfo(status: .notPurchased, expirationDate: nil))
+        return
+#else
         let productID = product.productId()
         if #available(iOS 15.0, *) {
             Task {
@@ -356,6 +386,7 @@ import StoreKit
         else {
             NotificationCenter.default.post(name: product.purchaseAbortedNotification(), object: PurchaseInterruption.lowOSVersion, userInfo:["interruption": PurchaseInterruption.lowOSVersion.rawValue])
         }
+#endif
     }
     
     @available(iOS 15.0, *)

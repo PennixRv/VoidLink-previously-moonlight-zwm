@@ -1818,8 +1818,11 @@ static NSMutableSet* hostList;
     }];
     
     [self prewarmSoftKeyboard];
-        
+
+#if !TARGET_OS_TV
+    // tvOS builds don't use IAP flows (sideload usage, and product IDs are iOS-scoped).
     [IAPManager.shared fetchProducts];
+#endif
     
     [self changeDefaultSettings];
 
