@@ -24,9 +24,12 @@
 #import "RelativeTouchHandler.h"
 #import "AbsoluteTouchHandler.h"
 #import "KeyboardInputField.h"
-#import "CustomTapGestureRecognizer.h"
 #import "LocalizationHelper.h"
 #import "StreamFrameViewController.h"
+
+#if !TARGET_OS_TV
+#import "CustomTapGestureRecognizer.h"
+#endif
 
 
 static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
@@ -63,7 +66,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     BOOL hasUserInteracted;
     
     NSDictionary<NSString *, NSNumber *> *dictCodes;
+#if !TARGET_OS_TV
     CustomTapGestureRecognizer *keyboardToggleRecognizer;
+#endif
     UIPanGestureRecognizer *discreteMouseWheelRecognizer;
     UIPanGestureRecognizer *continuousMouseWheelRecognizer;
     CGFloat HeightViewLiftedTo;
@@ -235,6 +240,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     [self becomeFirstResponder];
 }
 
+#if !TARGET_OS_TV
 - (void)refreshKeyboardToggleRecognizer:(uint8_t)numberOfTouches{
     [self->_streamFrameTopLayerView removeGestureRecognizer:keyboardToggleRecognizer];
     keyboardToggleRecognizer = [[CustomTapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleKeyboard)];
@@ -245,6 +251,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     [self->_streamFrameTopLayerView addGestureRecognizer:keyboardToggleRecognizer];
     keyboardToggleRecognizer.touchCapturingView = self;
 }
+#endif
 
 - (void)keyboardWillShow:(NSNotification *)notification{
 #if TARGET_OS_TV
@@ -288,6 +295,9 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 // this method also deals with recovering streamview when local keyboard is turned off
 - (void)keyboardWillHide{
+#if TARGET_OS_TV
+    return;
+#else
     // NSLog(@"keyboard will hide markmark %f", CACurrentMediaTime());
 
     keyboardToggleRecognizer.numberOfTouchesRequired = settings.keyboardToggleFingers.intValue; // reset this number
@@ -299,6 +309,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         
         isInputingText = NO;
     }
+#endif
 }
 
 - (void)liftMetalVideoViewIfNeeded:(CGFloat)liftHeight {
