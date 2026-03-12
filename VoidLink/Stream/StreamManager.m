@@ -25,6 +25,8 @@
 
 #include <Limelight.h>
 
+#import <UIKit/UIKit.h>
+
 @implementation StreamManager {
     StreamConfiguration* _config;
 
@@ -214,11 +216,40 @@
 
     NSString* colorRange = _config.fullColorRange ? @"Full" : @"Limited";
 
-    if(overlayLevel == 1) return [LocalizationHelper localizedStringForKey:@"simplifiedOsdText",
-                 fps,
-                 stats.networkDroppedFrames / interval,
-                 avgVideoMbps,
-                 latencyString];
+    NSString* outputInfo = nil;
+#if TARGET_OS_TV
+    // Help validate 4K60 / 1440p120 modes: show the current HDMI output mode we're running under.
+    // Note: maximumFramesPerSecond reflects the current display mode, which should change when
+    // AVDisplayManager.preferredDisplayCriteria is applied at stream start.
+    UIScreen* screen = [UIScreen mainScreen];
+    NSInteger maxHz = screen.maximumFramesPerSecond;
+    CGSize nativeSize = CGSizeZero;
+    if ([screen respondsToSelector:@selector(nativeBounds)]) {
+        nativeSize = screen.nativeBounds.size;
+    } else {
+        // Fallback: approximate using points * scale.
+        nativeSize = CGSizeMake(screen.bounds.size.width * screen.scale, screen.bounds.size.height * screen.scale);
+    }
+
+    if (nativeSize.width > 0 && nativeSize.height > 0) {
+        outputInfo = [LocalizationHelper localizedStringForKey:@"Output: %.0fx%.0f @ %ld Hz (stream target: %dx%d@%d)\n",
+                      nativeSize.width, nativeSize.height, (long)maxHz,
+                      _config.width, _config.height, _config.frameRate];
+    } else {
+        outputInfo = [LocalizationHelper localizedStringForKey:@"Output: %ld Hz (stream target: %dx%d@%d)\n",
+                      (long)maxHz,
+                      _config.width, _config.height, _config.frameRate];
+    }
+#endif
+
+    if(overlayLevel == 1) {
+        NSString* base = [LocalizationHelper localizedStringForKey:@"simplifiedOsdText",
+                          fps,
+                          stats.networkDroppedFrames / interval,
+                          avgVideoMbps,
+                          latencyString];
+        return outputInfo != nil ? [outputInfo stringByAppendingString:base] : base;
+    }
     else {
         if (framePacingMode == FramePacingModeLegacy || framePacingMode == FramePacingModeOff) {
             NSString* rendererWithPacing = stats.renderingBackendString;
@@ -230,47 +261,49 @@
                 }
             }
             
-            return [LocalizationHelper localizedStringForKey:@"Video stream: %dx%d %.2f FPS (Codec: %@, %@)\n"
-                     "Bitrate: %.1f Mbps, Peak: %.1f\n"
-                     "%@"
-                     "Renderer: %@\n"
-                     "Frames dropped by network: %.1f%%\n"
-                     "Average network latency: %@",
-                     _config.width,
-                     _config.height,
-                     fps,
-                     [_connection getActiveCodecName],
-                     colorRange,
-                     avgVideoMbps, peakVideoMbps,
-                     hostProcessingString,
-                     rendererWithPacing,
-                     (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
-                     latencyString];
+            NSString* base = [LocalizationHelper localizedStringForKey:@"Video stream: %dx%d %.2f FPS (Codec: %@, %@)\n"
+                              "Bitrate: %.1f Mbps, Peak: %.1f\n"
+                              "%@"
+                              "Renderer: %@\n"
+                              "Frames dropped by network: %.1f%%\n"
+                              "Average network latency: %@",
+                              _config.width,
+                              _config.height,
+                              fps,
+                              [_connection getActiveCodecName],
+                              colorRange,
+                              avgVideoMbps, peakVideoMbps,
+                              hostProcessingString,
+                              rendererWithPacing,
+                              (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
+                              latencyString];
+            return outputInfo != nil ? [outputInfo stringByAppendingString:base] : base;
         } else {
             NSString* rendererWithPacing = stats.renderingBackendString;
             if ([stats.renderingBackendString isEqualToString:@"AVSampleBuffer"]) {
                 rendererWithPacing = @"AVSampleBuffer (Queue Pacing)";
             }
             
-            return [LocalizationHelper localizedStringForKey:@"Video stream: %dx%d %.2f FPS (Codec: %@, %@)\n"
-                     "Bitrate: %.1f Mbps, Peak: %.1f, Frames buffered: %.1f\n"
-                     "%@"
-                     "Renderer: %@\n"
-                     "Frames dropped by network/pacing jitter: %.1f%% / %.1f%%\n"
-                     "Average network latency: %@\n"
-                     "Decode time: %.2f/%.2f/%.2f ms",
-                     _config.width,
-                     _config.height,
-                     fps,
-                     [_connection getActiveCodecName],
-                     colorRange,
-                     avgVideoMbps, peakVideoMbps, stats.frameQueueMetrics.avg,
-                     hostProcessingString,
-                     rendererWithPacing,
-                     (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
-                     stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0f,
-                     latencyString,
-                     stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg];
+            NSString* base = [LocalizationHelper localizedStringForKey:@"Video stream: %dx%d %.2f FPS (Codec: %@, %@)\n"
+                              "Bitrate: %.1f Mbps, Peak: %.1f, Frames buffered: %.1f\n"
+                              "%@"
+                              "Renderer: %@\n"
+                              "Frames dropped by network/pacing jitter: %.1f%% / %.1f%%\n"
+                              "Average network latency: %@\n"
+                              "Decode time: %.2f/%.2f/%.2f ms",
+                              _config.width,
+                              _config.height,
+                              fps,
+                              [_connection getActiveCodecName],
+                              colorRange,
+                              avgVideoMbps, peakVideoMbps, stats.frameQueueMetrics.avg,
+                              hostProcessingString,
+                              rendererWithPacing,
+                              (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
+                              stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0f,
+                              latencyString,
+                              stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg];
+            return outputInfo != nil ? [outputInfo stringByAppendingString:base] : base;
         }
     }
 }
