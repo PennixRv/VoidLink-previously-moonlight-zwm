@@ -15,6 +15,10 @@ static const CGFloat cellOffsetY = 20;
 
 @implementation HostCell {
     UIViewController* parentVC;
+#if TARGET_OS_TV
+    UIInterpolatingMotionEffect* _motionEffectV;
+    UIInterpolatingMotionEffect* _motionEffectH;
+#endif
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -27,12 +31,43 @@ static const CGFloat cellOffsetY = 20;
         self.layer.shadowOpacity = 0.0;
         self.layer.shadowOffset = CGSizeZero;
         self.layer.shadowRadius = 0.0;
+
+#if TARGET_OS_TV
+        _motionEffectV = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.y"
+                                                                         type:UIInterpolatingMotionEffectTypeTiltAlongVerticalAxis];
+        _motionEffectV.maximumRelativeValue = @(8);
+        _motionEffectV.minimumRelativeValue = @(-8);
+        _motionEffectH = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.x"
+                                                                         type:UIInterpolatingMotionEffectTypeTiltAlongHorizontalAxis];
+        _motionEffectH.maximumRelativeValue = @(8);
+        _motionEffectH.minimumRelativeValue = @(-8);
+#endif
     }
     return self;
 }
 
+#if TARGET_OS_TV
+- (void)applyFocusMotionEffects:(BOOL)focused {
+    if (_motionEffectH == nil || _motionEffectV == nil) {
+        return;
+    }
+
+    // Ensure we don't stack duplicates if focus updates re-enter.
+    [self removeMotionEffect:_motionEffectH];
+    [self removeMotionEffect:_motionEffectV];
+
+    if (focused) {
+        [self addMotionEffect:_motionEffectH];
+        [self addMotionEffect:_motionEffectV];
+    }
+}
+#endif
+
 - (void)prepareForReuse {
     [super prepareForReuse];
+#if TARGET_OS_TV
+    [self applyFocusMotionEffects:NO];
+#endif
     [self.cardView removeFromSuperview];
     self.cardView = nil;
 }
@@ -192,6 +227,9 @@ static const CGFloat cellOffsetY = 20;
 
     void (^applyUnfocused)(UICollectionViewCell *) = ^(UICollectionViewCell *cell) {
         if (!cell) return;
+        if ([cell isKindOfClass:[HostCell class]]) {
+            [(HostCell *)cell applyFocusMotionEffects:NO];
+        }
         cell.layer.zPosition = 0;
         cell.transform = CGAffineTransformIdentity;
         cell.layer.shadowOpacity = 0.0;
@@ -205,6 +243,9 @@ static const CGFloat cellOffsetY = 20;
         cell.contentView.clipsToBounds = NO;
         cell.layer.masksToBounds = NO;
         cell.layer.shadowColor = [UIColor blackColor].CGColor;
+        if ([cell isKindOfClass:[HostCell class]]) {
+            [(HostCell *)cell applyFocusMotionEffects:YES];
+        }
 
         CGAffineTransform t = CGAffineTransformMakeScale(scaleFactor, scaleFactor);
         CGFloat scaleDiff = (cell.bounds.size.height * scaleFactor - cell.bounds.size.height) / 2.0;
