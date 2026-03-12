@@ -9,6 +9,13 @@
 import Foundation
 import UIKit
 
+// CommandManager is used by the iOS toolbox UI. The tvOS target doesn't ship the toolbox,
+// so keep this file target-agnostic by depending on a lightweight protocol instead of a
+// concrete ToolboxViewController type.
+public protocol CommandManagerViewController: AnyObject {
+    func reloadTableView()
+}
+
 // Define the RemoteCommand class
 @objc public class RemoteCommand: NSObject, NSSecureCoding {
     // MARK: - NSSecureCoding
@@ -408,7 +415,7 @@ import UIKit
     
     private var commands: [RemoteCommand] = []
     
-    public weak var viewController: ToolboxViewController?
+    public weak var viewController: CommandManagerViewController?
     
     private override init() {
         super.init()
@@ -559,7 +566,7 @@ import UIKit
         if (keyStrings == nil) {return false}  // in case of non-keyboard command strings, return false
         commands.append(command)
         saveCommands()
-        viewController?.reloadTableView() // don't know why but this reload has to be called from the CommandManager, doesn't work by calling it in the viewcontroller, probably related with the dialog box.
+        viewController?.reloadTableView() // Trigger UI refresh from CommandManager to keep dialog flows consistent.
         return true
     }
     
