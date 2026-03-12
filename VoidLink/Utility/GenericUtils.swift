@@ -8,6 +8,7 @@
 
 
 import Foundation
+import UIKit
 
 @objc public class GenericUtils: NSObject {
         
