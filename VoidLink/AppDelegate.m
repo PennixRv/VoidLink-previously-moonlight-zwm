@@ -13,6 +13,10 @@
 #import "MainFrameViewController.h"
 #import "VoidLink-Swift.h"
 
+#if TARGET_OS_TV
+@class VoidLinkTVSafeModeViewController;
+#endif
+
 @implementation AppDelegate
 
 @synthesize managedObjectContext = _managedObjectContext;
@@ -41,175 +45,6 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 }
 
 #if TARGET_OS_TV
-
-@interface AppDelegate ()
-- (void)tvosSwitchToMainUI;
-@end
-
-@interface VoidLinkTVSafeModeViewController : UIViewController
-@end
-
-@implementation VoidLinkTVSafeModeViewController
-
-- (UIButton *)makePrimaryButtonWithTitle:(NSString *)title action:(SEL)action
-{
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    button.translatesAutoresizingMaskIntoConstraints = NO;
-    [button setTitle:title forState:UIControlStateNormal];
-
-    button.titleLabel.font = [UIFont systemFontOfSize:34 weight:UIFontWeightSemibold];
-    button.contentEdgeInsets = UIEdgeInsetsMake(18, 28, 18, 28);
-    button.layer.cornerRadius = 14.0;
-    button.clipsToBounds = YES;
-    button.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.12];
-    [button setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-
-    [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
-    return button;
-}
-
-- (UIViewController *)makeLogsViewController
-{
-    // Mirror MainFrameViewController's log viewer but keep it self-contained for Safe Mode.
-    NSString* currentLogPath = LoggerGetLogFilePath();
-    if (currentLogPath == nil) {
-        LoggerInitFileLogging();
-        currentLogPath = LoggerGetLogFilePath();
-    }
-
-    NSString* logDir = nil;
-    if (currentLogPath != nil) {
-        logDir = [currentLogPath stringByDeletingLastPathComponent];
-    } else {
-        NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-        NSString* cacheDir = paths.firstObject ?: NSTemporaryDirectory();
-        logDir = [cacheDir stringByAppendingPathComponent:@"VoidLinkLogs"];
-        currentLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.log"];
-    }
-
-    NSString* prevLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.prev.log"];
-
-    NSError* currentError = nil;
-    NSString* currentContent = [NSString stringWithContentsOfFile:currentLogPath encoding:NSUTF8StringEncoding error:&currentError];
-    if (currentContent == nil) {
-        currentContent = [NSString stringWithFormat:@"(Failed to read current log)\npath: %@\nerror: %@\n", currentLogPath, currentError];
-    }
-
-    NSError* prevError = nil;
-    NSString* prevContent = [NSString stringWithContentsOfFile:prevLogPath encoding:NSUTF8StringEncoding error:&prevError];
-    if (prevContent == nil) {
-        prevContent = [NSString stringWithFormat:@"(No previous log, or failed to read)\npath: %@\nerror: %@\n", prevLogPath, prevError];
-    }
-
-    NSString* content = [NSString stringWithFormat:
-                         @"=== Current Log ===\npath: %@\n\n%@\n\n=== Previous Log ===\npath: %@\n\n%@\n",
-                         currentLogPath,
-                         currentContent,
-                         prevLogPath,
-                         prevContent];
-
-    UIViewController* vc = [[UIViewController alloc] init];
-    vc.title = @"Logs";
-    vc.view.backgroundColor = [UIColor blackColor];
-
-    UITextView* textView = [[UITextView alloc] initWithFrame:CGRectZero];
-    textView.translatesAutoresizingMaskIntoConstraints = NO;
-    textView.backgroundColor = [UIColor blackColor];
-    textView.textColor = [UIColor whiteColor];
-    textView.selectable = YES;
-    if (@available(iOS 13.0, tvOS 13.0, *)) {
-        textView.font = [UIFont monospacedSystemFontOfSize:18 weight:UIFontWeightRegular];
-    } else {
-        textView.font = [UIFont systemFontOfSize:18];
-    }
-    textView.text = content;
-
-    [vc.view addSubview:textView];
-    UILayoutGuide* safe = vc.view.safeAreaLayoutGuide;
-    [NSLayoutConstraint activateConstraints:@[
-        [textView.topAnchor constraintEqualToAnchor:safe.topAnchor],
-        [textView.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
-        [textView.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
-        [textView.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
-    ]];
-
-    return vc;
-}
-
-- (void)openTvSettings:(id)sender
-{
-    (void)sender;
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
-}
-
-- (void)showLogs:(id)sender
-{
-    (void)sender;
-    UIViewController* logsVC = [self makeLogsViewController];
-    [self.navigationController pushViewController:logsVC animated:YES];
-}
-
-- (void)continueToApp:(id)sender
-{
-    (void)sender;
-    AppDelegate* app = (AppDelegate*)[UIApplication sharedApplication].delegate;
-    [app tvosSwitchToMainUI];
-}
-
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
-    self.title = @"Safe Mode";
-    self.view.backgroundColor = [UIColor blackColor];
-
-    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-    NSString* reason = [defaults stringForKey:kVoidLinkTVSafeModeReasonKey] ?: @"Detected a previous crash during launch.";
-    NSInteger crashCount = [defaults integerForKey:kVoidLinkTVCrashCountKey];
-
-    UILabel* title = [[UILabel alloc] init];
-    title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"VoidLink Safe Mode";
-    title.textColor = [UIColor whiteColor];
-    title.font = [UIFont systemFontOfSize:54 weight:UIFontWeightBold];
-
-    UILabel* subtitle = [[UILabel alloc] init];
-    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
-    subtitle.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.85];
-    subtitle.font = [UIFont systemFontOfSize:28 weight:UIFontWeightRegular];
-    subtitle.numberOfLines = 0;
-    subtitle.text = [NSString stringWithFormat:@"Reason: %@\nCrash count: %ld\n\nYou can open Logs to inspect the crash, adjust settings, then Continue.", reason, (long)crashCount];
-
-    UIButton* continueBtn = [self makePrimaryButtonWithTitle:@"Continue" action:@selector(continueToApp:)];
-    UIButton* logsBtn = [self makePrimaryButtonWithTitle:@"View Logs" action:@selector(showLogs:)];
-    UIButton* settingsBtn = [self makePrimaryButtonWithTitle:@"Open Settings" action:@selector(openTvSettings:)];
-
-    UIStackView* buttons = [[UIStackView alloc] initWithArrangedSubviews:@[continueBtn, logsBtn, settingsBtn]];
-    buttons.translatesAutoresizingMaskIntoConstraints = NO;
-    buttons.axis = UILayoutConstraintAxisVertical;
-    buttons.spacing = 22;
-    buttons.alignment = UIStackViewAlignmentLeading;
-
-    [self.view addSubview:title];
-    [self.view addSubview:subtitle];
-    [self.view addSubview:buttons];
-
-    UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
-    [NSLayoutConstraint activateConstraints:@[
-        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:40],
-        [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:80],
-        [title.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-80],
-
-        [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:24],
-        [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
-        [subtitle.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-80],
-
-        [buttons.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:44],
-        [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
-    ]];
-}
-
-@end
-
 - (void)tvosSwitchToMainUI
 {
     UIStoryboard* storyboard = [UIStoryboard storyboardWithName:@"Main" bundle:nil];
@@ -519,3 +354,175 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 }
 
 @end
+
+#if TARGET_OS_TV
+
+@interface AppDelegate (TVSafeMode)
+- (void)tvosSwitchToMainUI;
+@end
+
+@interface VoidLinkTVSafeModeViewController : UIViewController
+@end
+
+@implementation VoidLinkTVSafeModeViewController
+
+- (UIButton *)makePrimaryButtonWithTitle:(NSString *)title action:(SEL)action
+{
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button setTitle:title forState:UIControlStateNormal];
+
+    button.titleLabel.font = [UIFont systemFontOfSize:34 weight:UIFontWeightSemibold];
+    button.contentEdgeInsets = UIEdgeInsetsMake(18, 28, 18, 28);
+    button.layer.cornerRadius = 14.0;
+    button.clipsToBounds = YES;
+    button.backgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.12];
+    [button setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+
+    [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
+    return button;
+}
+
+- (UIViewController *)makeLogsViewController
+{
+    // Mirror MainFrameViewController's log viewer but keep it self-contained for Safe Mode.
+    NSString* currentLogPath = LoggerGetLogFilePath();
+    if (currentLogPath == nil) {
+        LoggerInitFileLogging();
+        currentLogPath = LoggerGetLogFilePath();
+    }
+
+    NSString* logDir = nil;
+    if (currentLogPath != nil) {
+        logDir = [currentLogPath stringByDeletingLastPathComponent];
+    } else {
+        NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+        NSString* cacheDir = paths.firstObject ?: NSTemporaryDirectory();
+        logDir = [cacheDir stringByAppendingPathComponent:@"VoidLinkLogs"];
+        currentLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.log"];
+    }
+
+    NSString* prevLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.prev.log"];
+
+    NSError* currentError = nil;
+    NSString* currentContent = [NSString stringWithContentsOfFile:currentLogPath encoding:NSUTF8StringEncoding error:&currentError];
+    if (currentContent == nil) {
+        currentContent = [NSString stringWithFormat:@"(Failed to read current log)\npath: %@\nerror: %@\n", currentLogPath, currentError];
+    }
+
+    NSError* prevError = nil;
+    NSString* prevContent = [NSString stringWithContentsOfFile:prevLogPath encoding:NSUTF8StringEncoding error:&prevError];
+    if (prevContent == nil) {
+        prevContent = [NSString stringWithFormat:@"(No previous log, or failed to read)\npath: %@\nerror: %@\n", prevLogPath, prevError];
+    }
+
+    NSString* content = [NSString stringWithFormat:
+                         @"=== Current Log ===\npath: %@\n\n%@\n\n=== Previous Log ===\npath: %@\n\n%@\n",
+                         currentLogPath,
+                         currentContent,
+                         prevLogPath,
+                         prevContent];
+
+    UIViewController* vc = [[UIViewController alloc] init];
+    vc.title = @"Logs";
+    vc.view.backgroundColor = [UIColor blackColor];
+
+    UITextView* textView = [[UITextView alloc] initWithFrame:CGRectZero];
+    textView.translatesAutoresizingMaskIntoConstraints = NO;
+    textView.backgroundColor = [UIColor blackColor];
+    textView.textColor = [UIColor whiteColor];
+    textView.selectable = YES;
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
+        textView.font = [UIFont monospacedSystemFontOfSize:18 weight:UIFontWeightRegular];
+    } else {
+        textView.font = [UIFont systemFontOfSize:18];
+    }
+    textView.text = content;
+
+    [vc.view addSubview:textView];
+    UILayoutGuide* safe = vc.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [textView.topAnchor constraintEqualToAnchor:safe.topAnchor],
+        [textView.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
+        [textView.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
+        [textView.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+    ]];
+
+    return vc;
+}
+
+- (void)openTvSettings:(id)sender
+{
+    (void)sender;
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+}
+
+- (void)showLogs:(id)sender
+{
+    (void)sender;
+    UIViewController* logsVC = [self makeLogsViewController];
+    [self.navigationController pushViewController:logsVC animated:YES];
+}
+
+- (void)continueToApp:(id)sender
+{
+    (void)sender;
+    AppDelegate* app = (AppDelegate*)[UIApplication sharedApplication].delegate;
+    [app tvosSwitchToMainUI];
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.title = @"Safe Mode";
+    self.view.backgroundColor = [UIColor blackColor];
+
+    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+    NSString* reason = [defaults stringForKey:kVoidLinkTVSafeModeReasonKey] ?: @"Detected a previous crash during launch.";
+    NSInteger crashCount = [defaults integerForKey:kVoidLinkTVCrashCountKey];
+
+    UILabel* title = [[UILabel alloc] init];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = @"VoidLink Safe Mode";
+    title.textColor = [UIColor whiteColor];
+    title.font = [UIFont systemFontOfSize:54 weight:UIFontWeightBold];
+
+    UILabel* subtitle = [[UILabel alloc] init];
+    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
+    subtitle.textColor = [[UIColor whiteColor] colorWithAlphaComponent:0.85];
+    subtitle.font = [UIFont systemFontOfSize:28 weight:UIFontWeightRegular];
+    subtitle.numberOfLines = 0;
+    subtitle.text = [NSString stringWithFormat:@"Reason: %@\nCrash count: %ld\n\nYou can open Logs to inspect the crash, adjust settings, then Continue.", reason, (long)crashCount];
+
+    UIButton* continueBtn = [self makePrimaryButtonWithTitle:@"Continue" action:@selector(continueToApp:)];
+    UIButton* logsBtn = [self makePrimaryButtonWithTitle:@"View Logs" action:@selector(showLogs:)];
+    UIButton* settingsBtn = [self makePrimaryButtonWithTitle:@"Open Settings" action:@selector(openTvSettings:)];
+
+    UIStackView* buttons = [[UIStackView alloc] initWithArrangedSubviews:@[continueBtn, logsBtn, settingsBtn]];
+    buttons.translatesAutoresizingMaskIntoConstraints = NO;
+    buttons.axis = UILayoutConstraintAxisVertical;
+    buttons.spacing = 22;
+    buttons.alignment = UIStackViewAlignmentLeading;
+
+    [self.view addSubview:title];
+    [self.view addSubview:subtitle];
+    [self.view addSubview:buttons];
+
+    UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:40],
+        [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:80],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-80],
+
+        [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:24],
+        [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [subtitle.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-80],
+
+        [buttons.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:44],
+        [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+    ]];
+}
+
+@end
+
+#endif
