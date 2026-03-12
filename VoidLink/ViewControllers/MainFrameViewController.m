@@ -2715,21 +2715,24 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
         cell.layer.shadowOffset = CGSizeZero;
     };
     
-    void (^applyFocused)(UICollectionViewCell*) = ^(UICollectionViewCell* cell) {
-        if (cell == nil) {
-            return;
-        }
-        cell.clipsToBounds = NO;
-        cell.contentView.clipsToBounds = NO;
-        cell.layer.masksToBounds = NO;
-        
-        CGAffineTransform t = CGAffineTransformMakeScale(1.08, 1.08);
-        cell.transform = t;
-        
-        cell.layer.shadowColor = [UIColor blackColor].CGColor;
-        cell.layer.shadowOffset = CGSizeMake(0, 18);
-        cell.layer.shadowOpacity = GenericUtils.liquidGlassEnabled ? 0.14 : 0.20;
-        cell.layer.shadowRadius = 22.0;
+	    void (^applyFocused)(UICollectionViewCell*) = ^(UICollectionViewCell* cell) {
+	        if (cell == nil) {
+	            return;
+	        }
+	        cell.clipsToBounds = NO;
+	        cell.contentView.clipsToBounds = NO;
+	        cell.layer.masksToBounds = NO;
+	        
+	        CGFloat scaleFactor = GenericUtils.liquidGlassEnabled ? 1.07 : 1.10;
+	        CGAffineTransform t = CGAffineTransformMakeScale(scaleFactor, scaleFactor);
+	        CGFloat scaleDiff = (cell.bounds.size.height * scaleFactor - cell.bounds.size.height) / 2.0;
+	        t = CGAffineTransformTranslate(t, 0, -scaleDiff);
+	        cell.transform = t;
+	        
+	        cell.layer.shadowColor = [UIColor blackColor].CGColor;
+	        cell.layer.shadowOffset = CGSizeMake(0, 18);
+	        cell.layer.shadowOpacity = GenericUtils.liquidGlassEnabled ? 0.14 : 0.20;
+	        cell.layer.shadowRadius = 22.0;
         
         // Subtle parallax, similar to the Hosts focus treatment.
         UIInterpolatingMotionEffect* motionV =

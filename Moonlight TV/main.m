@@ -23,6 +23,7 @@ static void VoidLinkTVApplySafeModeDefaults(NSUserDefaults* defaults) {
     // Keep these defaults conservative and known-good to help escape crash loops.
     // Resolution values follow Settings.bundle mapping:
     // 0=720p, 1=1080p, 2=4K, 3=1440p
+    [defaults setInteger:0 forKey:@"streamPreset"]; // Custom (don't let presets override Safe Mode)
     [defaults setInteger:1 forKey:@"streamResolution"]; // 1080p
     [defaults setInteger:60 forKey:@"framerate"];
     [defaults setInteger:20000 forKey:@"bitrate"];

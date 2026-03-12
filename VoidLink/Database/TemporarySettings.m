@@ -32,14 +32,16 @@
     }
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
     
-    // These values are user-editable via Settings.bundle, so they must never hard-crash the app.
-    // Also note: Settings.bundle values are often stored as NSStrings (e.g., "60"), so we read
-    // via objectForKey + integerValue to avoid relying on numeric-only accessors.
-    NSInteger bitrateKbps = [[[NSUserDefaults standardUserDefaults] objectForKey:@"bitrate"] integerValue];
-    if (bitrateKbps <= 0) {
-        bitrateKbps = 20000;
-    }
-    self.bitrate = @(bitrateKbps);
+	    // These values are user-editable via Settings.bundle, so they must never hard-crash the app.
+	    // Also note: Settings.bundle values are often stored as NSStrings (e.g., "60"), so we read
+	    // via objectForKey + integerValue to avoid relying on numeric-only accessors.
+	    NSInteger streamPreset = [[[NSUserDefaults standardUserDefaults] objectForKey:@"streamPreset"] integerValue];
+
+	    NSInteger bitrateKbps = [[[NSUserDefaults standardUserDefaults] objectForKey:@"bitrate"] integerValue];
+	    if (bitrateKbps <= 0) {
+	        bitrateKbps = 20000;
+	    }
+	    self.bitrate = @(bitrateKbps);
 
     NSInteger fps = [[[NSUserDefaults standardUserDefaults] objectForKey:@"framerate"] integerValue];
     if (fps <= 0) {
@@ -105,11 +107,11 @@
         self.framePacingMode = @(useFramePacingPreference ? kFramePacingModeQueue : kFramePacingModeOff);
     }
 
-    NSInteger screenSize = [[[NSUserDefaults standardUserDefaults] objectForKey:@"streamResolution"] integerValue];
-    switch (screenSize) {
-        case 0:
-            self.height = [NSNumber numberWithInteger:720];
-            self.width = [NSNumber numberWithInteger:1280];
+	    NSInteger screenSize = [[[NSUserDefaults standardUserDefaults] objectForKey:@"streamResolution"] integerValue];
+	    switch (screenSize) {
+	        case 0:
+	            self.height = [NSNumber numberWithInteger:720];
+	            self.width = [NSNumber numberWithInteger:1280];
             break;
         case 1:
             self.height = [NSNumber numberWithInteger:1080];
@@ -126,13 +128,40 @@
         default:
             // Unknown value, fall back to 1080p.
             self.height = [NSNumber numberWithInteger:1080];
-            self.width = [NSNumber numberWithInteger:1920];
-            break;
-    }
+	            self.width = [NSNumber numberWithInteger:1920];
+	            break;
+	    }
 
-    // tvOS has no touchscreen. Keep OSC disabled even if CoreData has stale values.
-    // OnScreenControlsLevelOff is 0, but we intentionally avoid importing the OSC headers here.
-    self.onscreenControls = @(0);
+	    // Convenience presets for tvOS, to make "4K60" and "2K120" real modes, not just independent toggles.
+	    // Selecting a preset intentionally overrides the corresponding individual settings.
+	    if (streamPreset == 1) {
+	        // 4K60
+	        self.width = @3840;
+	        self.height = @2160;
+	        self.framerate = @60;
+	        self.bitrate = @(MAX(self.bitrate.integerValue, 80000)); // 80 Mbps baseline
+	        self.preferredCodec = CODEC_PREF_HEVC;
+
+	        // Favor smooth video at this quality level.
+	        self.framePacingMode = @2; // FramePacingModeQueue
+	        self.frameQueueSize = @2;
+	    }
+	    else if (streamPreset == 2) {
+	        // 2K120 (1440p @ 120)
+	        self.width = @2560;
+	        self.height = @1440;
+	        self.framerate = @120;
+	        self.bitrate = @(MAX(self.bitrate.integerValue, 100000)); // 100 Mbps baseline
+	        self.preferredCodec = CODEC_PREF_HEVC;
+
+	        // Favor latency at high FPS.
+	        self.framePacingMode = @0; // FramePacingModeOff
+	        self.frameQueueSize = @1;
+	    }
+
+	    // tvOS has no touchscreen. Keep OSC disabled even if CoreData has stale values.
+	    // OnScreenControlsLevelOff is 0, but we intentionally avoid importing the OSC headers here.
+	    self.onscreenControls = @(0);
 #else
     self.settingsMenuMode = settings.settingsMenuMode;
     self.settingsMenuWidth = settings.settingsMenuWidth;

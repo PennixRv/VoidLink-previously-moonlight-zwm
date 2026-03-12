@@ -19,6 +19,9 @@ static const float REFRESH_CYCLE = 1.0f;
 @implementation UIAppView {
     TemporaryApp* _app;
     UILabel* _appLabel;
+ #if TARGET_OS_TV
+    UIVisualEffectView* _appLabelEffectView;
+ #endif
     UIImageView* _appOverlay;
     UIImageView* _appImage;
     NSCache* _artCache;
@@ -136,6 +139,12 @@ static UIImage* noImage;
         [_appOverlay removeFromSuperview];
         _appOverlay = nil;
     }
+#if TARGET_OS_TV
+    if (_appLabelEffectView != nil) {
+        [_appLabelEffectView removeFromSuperview];
+        _appLabelEffectView = nil;
+    }
+#endif
     if (_appLabel != nil) {
         [_appLabel removeFromSuperview];
         _appLabel = nil;
@@ -214,25 +223,50 @@ static UIImage* noImage;
     
     if(true) {
         _appLabel = [[UILabel alloc] init];
+#if TARGET_OS_TV
+        // tvOS: use a glassy blur strip, similar to modern tvOS apps.
+        _appLabel.backgroundColor = UIColor.clearColor;
+        _appLabel.textColor = [UIColor colorWithWhite:1 alpha:0.95];
+#else
         _appLabel.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.55];
         [_appLabel setTextColor:[[UIColor whiteColor] colorWithAlphaComponent:1]];
+#endif
         //_appLabel.shadowColor = [UIColor blackColor];
         [_appLabel setText:[_app.name isEqualToString:@"Steam Big Picture"] ? @"Steam" : _app.name];
+#if TARGET_OS_TV
+        _appLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightMedium];
+#else
         [_appLabel setFont:[UIFont systemFontOfSize:15]];
+#endif
         [_appLabel setBaselineAdjustment:UIBaselineAdjustmentAlignCenters];
         [_appLabel setTextAlignment:NSTextAlignmentCenter];
         [_appLabel setLineBreakMode:NSLineBreakByWordWrapping];
         [_appLabel setNumberOfLines:2];
         _appLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     }
-    
+
+#if TARGET_OS_TV
+    _appLabelEffectView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    _appLabelEffectView.clipsToBounds = YES;
+    _appLabelEffectView.layer.cornerRadius = 14.0;
+    _appLabelEffectView.layer.borderWidth = GenericUtils.liquidGlassEnabled ? 0.0 : 1.0;
+    _appLabelEffectView.layer.borderColor = [[UIColor colorWithWhite:1 alpha:0.10] CGColor];
+    [_appLabelEffectView.contentView addSubview:_appLabel];
+#endif
+
     [self positionSubviews];
     
 #if TARGET_OS_TV
-    [_appImage.overlayContentView addSubview:_appLabel];
-    [_appImage.overlayContentView addSubview:_appOverlay];
+    if (_appLabelEffectView != nil) {
+        [_appImage.overlayContentView addSubview:_appLabelEffectView];
+    }
+    if (_appOverlay != nil) {
+        [_appImage.overlayContentView addSubview:_appOverlay];
+    }
 #else
-    [self addSubview:_appOverlay];
+    if (_appOverlay != nil) {
+        [self addSubview:_appOverlay];
+    }
     [self addSubview:_appLabel];
 #endif
 }
@@ -250,7 +284,18 @@ static UIImage* noImage;
     CGSize frameSize = _appImage.frame.size;
    //  CGPoint center = _appImage.center;
     
-    [_appLabel setFrame:CGRectMake(0, frameSize.height-43, frameSize.width, 43)];
+    CGRect labelFrame = CGRectMake(0, frameSize.height-43, frameSize.width, 43);
+#if TARGET_OS_TV
+    if (_appLabelEffectView != nil) {
+        _appLabelEffectView.frame = labelFrame;
+        // Keep text away from rounded edges for a "glass strip" look.
+        _appLabel.frame = CGRectInset(_appLabelEffectView.bounds, 14, 6);
+    } else {
+        _appLabel.frame = labelFrame;
+    }
+#else
+    [_appLabel setFrame:labelFrame];
+#endif
     //[_appLabel setFrame:CGRectMake(0, 0, 30, 12)];
 
     

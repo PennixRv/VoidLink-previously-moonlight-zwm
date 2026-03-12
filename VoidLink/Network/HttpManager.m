@@ -263,22 +263,35 @@
         return nil;
     }
     
-    // Using an FPS value over 60 causes SOPS to default to 720p60,
-    // so force it to 0 to ensure the correct resolution is set. We
-    // used to use 60 here but that locked the frame rate to 60 FPS
-    // on GFE 3.20.3. We do not do this hack for Sunshine (which is
-    // indicated by a negative version in the last field.
-    int fps = (config.frameRate > 60 && ![config.appVersion containsString:@".-"]) ? 0 : config.frameRate;
-    
-    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%s",
-                           _baseHTTPSURL, verb, _uniqueId,
-                           config.appID,
-                           config.width, config.height, fps,
-                           config.optimizeGameSettings ? 1 : 0,
-                           [Utils bytesToHex:config.riKey], config.riKeyId,
-                           (config.supportedVideoFormats & VIDEO_FORMAT_MASK_10BIT) ? @"&hdrMode=1&clientHdrCapVersion=0&clientHdrCapSupportedFlagsInUint32=0&clientHdrCapMetaDataId=NV_STATIC_METADATA_TYPE_1&clientHdrCapDisplayData=0x0x0x0x0x0x0x0x0x0x0": @"",
-                           config.playAudioOnPC ? 1 : 0,
-                           SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(config.audioConfiguration),
+	    // Using an FPS value over 60 causes SOPS to default to 720p60,
+	    // so force it to 0 to ensure the correct resolution is set. We
+	    // used to use 60 here but that locked the frame rate to 60 FPS
+	    // on GFE 3.20.3. We do not do this hack for Sunshine (which is
+	    // indicated by a negative version in the last field.
+	    BOOL isSunshine = (config.appVersion != nil) && [config.appVersion containsString:@".-"];
+	    int fps = (config.frameRate > 60 && !isSunshine) ? 0 : config.frameRate;
+
+	    // Using a non-standard resolution (> 720p but not 1080p/4K) can cause GFE to force SOPS down to 720p60.
+	    // Follow Android Moonlight's behavior and disable SOPS in that case (Sunshine doesn't need this hack).
+	    int sops = config.optimizeGameSettings ? 1 : 0;
+	    long long pixels = (long long)config.width * (long long)config.height;
+	    BOOL isNonStandardAbove720p = (pixels > (1280LL * 720LL)) &&
+	                                  (pixels != (1920LL * 1080LL)) &&
+	                                  (pixels != (3840LL * 2160LL));
+	    if (sops && isNonStandardAbove720p && !isSunshine) {
+	        Log(LOG_I, @"Disabling SOPS for non-standard resolution on GFE: %dx%d", config.width, config.height);
+	        sops = 0;
+	    }
+	    
+	    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%s",
+	                           _baseHTTPSURL, verb, _uniqueId,
+	                           config.appID,
+	                           config.width, config.height, fps,
+	                           sops,
+	                           [Utils bytesToHex:config.riKey], config.riKeyId,
+	                           (config.supportedVideoFormats & VIDEO_FORMAT_MASK_10BIT) ? @"&hdrMode=1&clientHdrCapVersion=0&clientHdrCapSupportedFlagsInUint32=0&clientHdrCapMetaDataId=NV_STATIC_METADATA_TYPE_1&clientHdrCapDisplayData=0x0x0x0x0x0x0x0x0x0x0": @"",
+	                           config.playAudioOnPC ? 1 : 0,
+	                           SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(config.audioConfiguration),
                            config.gamepadMask, config.gamepadMask,
                            !config.multiController ? 1 : 0,
                            LiGetLaunchUrlQueryParameters()];

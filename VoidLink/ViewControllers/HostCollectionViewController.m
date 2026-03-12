@@ -223,7 +223,7 @@ static const CGFloat cellOffsetY = 20;
     UICollectionViewCell *prevCell = context.previouslyFocusedIndexPath ? [collectionView cellForItemAtIndexPath:context.previouslyFocusedIndexPath] : nil;
     UICollectionViewCell *nextCell = context.nextFocusedIndexPath ? [collectionView cellForItemAtIndexPath:context.nextFocusedIndexPath] : nil;
 
-    CGFloat scaleFactor = GenericUtils.liquidGlassEnabled ? 1.05 : 1.06;
+    CGFloat scaleFactor = GenericUtils.liquidGlassEnabled ? 1.05 : 1.08;
 
     void (^applyUnfocused)(UICollectionViewCell *) = ^(UICollectionViewCell *cell) {
         if (!cell) return;
