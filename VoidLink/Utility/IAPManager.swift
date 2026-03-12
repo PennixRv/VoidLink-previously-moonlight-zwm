@@ -266,6 +266,10 @@ import StoreKit
     @objc static func handlePurchaseSuccess(_ product: AddOnProduct) {
         switch product {
         case .PencilProPack:
+#if os(tvOS)
+            // tvOS build doesn't support Pencil/OSC profile unlock flows.
+            break
+#else
             let dataMan = DataManager()
             let settings = dataMan.retrieveSettings()
             settings?.onscreenControls = 1
@@ -278,6 +282,7 @@ import StoreKit
             if targetProfile.name == "Pencil Pro" {
                 profileMan.setProfileToSelected(1)
             }
+#endif
         default:
             break
         }

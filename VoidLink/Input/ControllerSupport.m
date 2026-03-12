@@ -12,7 +12,10 @@
 #import "ControllerSupport.h"
 #import "VoidController.h"
 #import "VoidLink-Swift.h"
+#if !TARGET_OS_TV
 #import "OnScreenControls.h"
+#import "OSCProfilesManager.h"
+#endif
 
 #import "DataManager.h"
 #include "Limelight.h"
@@ -71,12 +74,14 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     float _leftStickMinOffset;
     float _rightStickMinOffset;
 
+ #if !TARGET_OS_TV
     OnScreenControls *_osc;
+    OSCProfile* oscProfile;
+    OSCProfilesManager* oscProfileMan;
+ #endif
     VoidController *_oscController;
     NSMutableSet* _activeGCControllers;
     TemporarySettings* tempSettings;
-    OSCProfile* oscProfile;
-    OSCProfilesManager* oscProfileMan;
 
 #define EMULATING_SELECT     0x1
 #define EMULATING_SPECIAL    0x2
@@ -1246,6 +1251,11 @@ double rc_expo(double x, double expo) {
                    ||!self->oscProfile.rollToLeftStick) [self updateLeftStick:voidController x:leftStickX y:leftStickY];
                 */
                 
+#if TARGET_OS_TV
+                // tvOS: no OSC/widget gyro mixing.
+                [self updateRightStick: voidController.playerIndex==0?self->_oscController:voidController x:rightStickX y:rightStickY];
+                [self updateLeftStick: voidController.playerIndex==0?self->_oscController:voidController x:leftStickX y:leftStickY];
+#else
                 if([self useMotionHandler]
                    && self->oscProfile.mapGyroTo==mapGyroToControllerStick
                    && self->oscProfile.yawPitchToRightStick
@@ -1259,6 +1269,7 @@ double rc_expo(double x, double expo) {
                    && self->_gyroEnabledFlag
                    ) [self->motionHandler mixPhysicalLeftStickAndGyroInputWithX:leftStickX y:leftStickY];
                 else [self updateLeftStick: voidController.playerIndex==0?self->_oscController:voidController x:leftStickX y:leftStickY];
+#endif
                 
                 leftTrigger = gamepad.leftTrigger.value * 0xFF;
                 rightTrigger = gamepad.rightTrigger.value * 0xFF;
@@ -1485,6 +1496,19 @@ double rc_expo(double x, double expo) {
 #endif
 }
 
+#if TARGET_OS_TV
+-(void) updateAutoOnScreenControlMode
+{
+    // tvOS build doesn't use on-screen (touch) controls.
+    return;
+}
+
+-(void) initAutoOnScreenControlMode:(OnScreenControls*)osc
+{
+    (void)osc;
+    return;
+}
+#else
 -(void) updateAutoOnScreenControlMode
 {
     // Auto on-screen control support may not be enabled
@@ -1539,6 +1563,7 @@ double rc_expo(double x, double expo) {
     
     [self updateAutoOnScreenControlMode];
 }
+#endif
 
 -(VoidController* )controllerHasBeenAssignedDeprecated:(GCController*)controller{
     if(controller.playerIndex == 0) return nil;
@@ -1678,6 +1703,11 @@ double rc_expo(double x, double expo) {
         mask = 0x1;
     }
     
+#if TARGET_OS_TV
+    // tvOS build doesn't use on-screen (touch) controls, so the connected mask
+    // is purely derived from physical controllers (or the single-controller default above).
+    return mask;
+#else
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* settings = [dataMan getSettings];
     OnScreenControlsLevel level = (OnScreenControlsLevel)[settings.onscreenControls integerValue];
@@ -1690,6 +1720,7 @@ double rc_expo(double x, double expo) {
     }
     
     return mask;
+#endif
 }
 
 -(NSUInteger) getConnectedGamepadCount
@@ -1721,6 +1752,54 @@ double rc_expo(double x, double expo) {
 
     _oscController.playerIndex = 0;
 
+#if TARGET_OS_TV
+    // tvOS: no custom on-screen controls (OSC) profiles or widget-driven gyro controls.
+    motionHandler = nil;
+
+    DataManager* dataMan = [[DataManager alloc] init];
+    tempSettings = [dataMan getSettings];
+
+    _oscEnabled = false;
+    _gyroSensitivity = tempSettings.gyroSensitivity.floatValue;
+
+    _mapControllerToMouse = tempSettings.mapControllerToMouse;
+    _controllerMouseSwitch = tempSettings.controllerMouseSwitch.intValue;
+    mouseSwitchDownTimestamp = 0;
+    _mouseSwitchButtonPressed = false;
+    _mouseSwitchButtonBeingClicked = false;
+    _controllerMouseStick = tempSettings.controllerMouseStick.intValue;
+    _controllerMouseLeftButton = tempSettings.controllerMouseLeftButton.intValue;
+    _controllerMouseRightButton = tempSettings.controllerMouseRightButton.intValue;
+    _stickToMouseExpo = tempSettings.controllerMouseExpo.floatValue;
+    _stickToMouseVelocity = tempSettings.controllerMousePointerVelocity.floatValue * 60 / tempSettings.framerate.intValue;
+    stickToMouseInputX = 0;
+    stickToMouseInputY = 0;
+    stickToWheelInputY = 0;
+
+    [self stopDisplayLink];
+    if(_mapControllerToMouse){
+        _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkCallBack)];
+        if (@available(iOS 15.0, tvOS 15.0, *)) {
+            [_displayLink setPreferredFrameRateRange:CAFrameRateRangeMake(tempSettings.framerate.intValue,tempSettings.framerate.intValue, tempSettings.framerate.intValue)];
+        }
+        else {
+            _displayLink.preferredFramesPerSecond = tempSettings.framerate.intValue;
+        }
+        [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    }
+
+    _controllerGyroSwitchEnabled = false;
+    _gyroSwitchMode = ControllerGyroSwitchDisabled;
+    _controllerGyroSwitchToggle = 0;
+    _controllerGyroSwitchHold = 0;
+    _reverseHoldButton = false;
+    _controllerGyroSwitchTogglePressed = false;
+    _controllerGyroSwitchHoldPressed = false;
+
+    stickMaxOffset = 0x7FFE;
+    _leftStickMinOffset = 0;
+    _rightStickMinOffset = 0;
+#else
     oscProfile = [oscProfileMan getSelectedProfile];
     motionHandler = [MotionHandler sharedWithProfile:oscProfile];
     DataManager* dataMan = [[DataManager alloc] init];
@@ -1770,6 +1849,7 @@ double rc_expo(double x, double expo) {
     if(oscProfile.controllerGyroSwitchMode == ControllerGyroSwitchDisabled && ![self useMotionHandler]) _gyroEnabledFlag = true;
 
     if(![self useMotionHandler]) [self->motionHandler stopGyroUpdateWithInterruptNoneGyroInput:false resetLeftStick:true];
+#endif
 }
 
 - (void)resetGyroInputForController:(VoidController* )voidController{
@@ -1965,7 +2045,9 @@ double rc_expo(double x, double expo) {
     _controllerMouseEnabledFlag = false;
     
     _gyroEnabledFlag = false;
+#if !TARGET_OS_TV
     oscProfileMan = [OSCProfilesManager sharedManager:CGRectZero];
+#endif
 
     [self updateCommonConfig:streamConfig];
     

@@ -422,11 +422,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     }
 }
 
-- (void) reloadLegacyWidgets:(OSCProfile* )profile {
 #if !TARGET_OS_TV
+- (void) reloadLegacyWidgets:(OSCProfile* )profile {
     if(!_widgetToolOpened) [_onScreenControls showLegacyWidgetsWith:profile];
-#endif
 }
+#endif
 
 - (void) setOnScreenControls{
 
@@ -451,7 +451,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 // we'll enable on screen buttons, and disable on screen controllers for absolute touch
 - (bool) isOnScreenWidgetEnabled{
+#if TARGET_OS_TV
+    return false;
+#else
     return [self isOscEnabled] && settings.onscreenControls.intValue == OnScreenControlsLevelCustom;
+#endif
 }
 
 - (void) reloadOnScreenControlsRealtimeWith:(ControllerSupport*)controllerSupport
@@ -712,6 +716,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 #endif
 }
 
+#if !TARGET_OS_TV
 - (OnScreenControlsLevel) getCurrentOscState {
     if (_onScreenControls == nil) {
         return OnScreenControlsLevelOff;
@@ -720,6 +725,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         return [_onScreenControls getLevel];
     }
 }
+#endif
 
 
 - (CGSize) getVideoAreaSize {

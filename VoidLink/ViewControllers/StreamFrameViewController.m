@@ -1016,7 +1016,12 @@
 }
 
 - (void)bringUpSoftKeyboard{
+#if TARGET_OS_TV
+    // tvOS uses the system keyboard and doesn't support the iOS toolbox-driven soft keyboard flow.
+    return;
+#else
     [self->_streamView readyToBringUpSoftKeyboardByToolbox];
+#endif
 }
 
 - (void)enterPip{
@@ -1024,7 +1029,12 @@
 }
 
 - (void)alterAbsTouchDragWithMouseButton:(int32_t)mouseButton{
+#if TARGET_OS_TV
+    (void)mouseButton;
+    return;
+#else
     [_streamView alterAbsTouchDragWith:mouseButton];
+#endif
 }
 
 - (void)oscLayoutClosed{
@@ -1058,8 +1068,8 @@
 - (void)willMoveToParentViewController:(UIViewController *)parent {
     // Only cleanup when we're being destroyed
     if (parent == nil) {
-        _streamView = nil;
         [_streamView cleanUp];
+        _streamView = nil;
         [_controllerSupport cleanup];
 
         [UIApplication sharedApplication].idleTimerDisabled = NO;
@@ -1194,7 +1204,9 @@
     }
 #endif
 
+#if !TARGET_OS_TV
     [_streamView clearOnScreenWidgets];
+#endif
 #if !TARGET_OS_TV
     if(micHandler) [micHandler clean];
     PencilHandler.shared = nil;
@@ -1348,9 +1360,8 @@
     //sleep(1);
     appDidEnterBackgroundWithoutPip = true;
     NSLog(@"applicationWillResignActive %f", CACurrentMediaTime());
-    [_streamView saveStreamViewWidgetChanges];
-
 #if !TARGET_OS_TV
+    [_streamView saveStreamViewWidgetChanges];
 #endif
 }
 

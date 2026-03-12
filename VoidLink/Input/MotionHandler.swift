@@ -27,7 +27,7 @@ import CoreMotion
 @objc class MotionHandler: NSObject, OnScreenWidgetStickMixedInputDelegate {
     private static let sharedInstance = MotionHandler()
 
-    @objc class func shared(profile: OSCProfile?) -> MotionHandler {
+    @objc class func shared(profile: NSObject?) -> MotionHandler {
         // Keep API parity with iOS implementation; ignore profile for now.
         return MotionHandler.sharedInstance
     }
@@ -40,7 +40,9 @@ import CoreMotion
     @objc public var previousWidgetPitchFactor: CGFloat = 1.0
     @objc public var previousWidgetRollFactor: CGFloat = 1.0
 
-    @objc public var onScreenControls: OnScreenControls?
+    // Avoid referencing iOS-only OSC types in the tvOS build. This is kept only
+    // for API shape parity with ObjC callers compiled on iOS.
+    @objc public var onScreenControls: NSObject?
 
     @objc public var gyroBiasX: Double = 0
     @objc public var gyroBiasY: Double = 0

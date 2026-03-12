@@ -12,9 +12,12 @@
 //
 
 #import "ControllerSupport.h"
-#import "OnScreenControls.h"
 #import "VoidLink-Swift.h"
 #import "StreamConfiguration.h"
+
+#if !TARGET_OS_TV
+#import "OnScreenControls.h"
+#endif
 
 @protocol UserInteractionDelegate <NSObject>
 
@@ -39,7 +42,9 @@
 @property (assign, nonatomic) CGFloat streamAspectRatio;
 @property (assign, nonatomic) CGRect originalFrame;
 @property (assign, nonatomic) bool widgetToolOpened;
+#if !TARGET_OS_TV
 @property (strong, nonatomic) OnScreenControls* onScreenControls;
+#endif
 #if !TARGET_OS_TV
 @property (weak, nonatomic) PencilHandler* pencilHandler;
 #endif
@@ -53,6 +58,7 @@
 
 - (void)cleanUp;
 
+#if !TARGET_OS_TV
 - (void) reloadLegacyWidgets:(OSCProfile* )profile;
 - (void) setOnScreenControls;
 - (void) disableOnScreenControls;
@@ -64,11 +70,13 @@
 - (void) reloadOnScreenWidgetViews:(bool)reload;
 - (void) saveStreamViewWidgetChanges;
 - (bool) isOnScreenWidgetEnabled;
+#endif
 
 - (CGSize) getVideoAreaSize;
 - (CGPoint) adjustCoordinatesForVideoArea:(CGPoint)point;
 - (uint16_t)getRotationFromAzimuthAngle:(float)azimuthAngle;
 
+#if !TARGET_OS_TV
 - (OnScreenControlsLevel) getCurrentOscState;
 
 - (void)readyToBringUpSoftKeyboardByToolbox;
@@ -77,6 +85,7 @@
 - (void)liftMetalVideoViewIfNeeded:(CGFloat)liftHeight;
 
 - (void)alterAbsTouchDragWith:(int32_t)mouseButton;
+#endif
 
 #if !TARGET_OS_TV
 - (void)enablePencilHover;
