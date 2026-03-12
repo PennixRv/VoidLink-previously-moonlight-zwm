@@ -1993,7 +1993,6 @@ static NSMutableSet* hostList;
     textView.translatesAutoresizingMaskIntoConstraints = NO;
     textView.backgroundColor = [UIColor blackColor];
     textView.textColor = [UIColor whiteColor];
-    textView.editable = NO;
     textView.selectable = YES;
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         textView.font = [UIFont monospacedSystemFontOfSize:18 weight:UIFontWeightRegular];
