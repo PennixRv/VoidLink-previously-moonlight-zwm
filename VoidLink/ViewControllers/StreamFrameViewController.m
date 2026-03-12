@@ -809,6 +809,13 @@
         
     _settings = [[[DataManager alloc] init] getSettings];  //StreamFrameViewController retrieve the settings here.
     
+#if TARGET_OS_TV
+    // Request the desired HDMI output refresh rate as early as possible.
+    // Without this, a 120 FPS stream may get clamped by the current 60 Hz output mode,
+    // even if the TV/HDMI chain supports 120 Hz.
+    [self updatePreferredDisplayMode:YES];
+#endif
+
     _stageLabel = [[UILabel alloc] init];
     [_stageLabel setUserInteractionEnabled:NO];
     // [_stageLabel setText:[NSString stringWithFormat:@"Starting %@...", self.streamConfig.appName]];

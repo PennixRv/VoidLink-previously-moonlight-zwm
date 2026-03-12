@@ -830,8 +830,17 @@ static NSMutableSet* hostList;
         }
         // Don't stream more FPS than the display can show
         if (_streamConfig.frameRate > maximumFramesPerSecond) {
+#if TARGET_OS_TV
+            // tvOS may be able to switch the HDMI output refresh rate at stream start via
+            // AVDisplayManager.preferredDisplayCriteria. Keep the requested FPS here to avoid
+            // preemptively clamping away 120 FPS modes.
+            Log(LOG_W,
+                @"Requested FPS %d exceeds current maximum refresh rate %ld; keeping requested FPS on tvOS (display mode matching may adjust output refresh rate)",
+                _streamConfig.frameRate, (long)maximumFramesPerSecond);
+#else
             _streamConfig.frameRate = (int)maximumFramesPerSecond;
             Log(LOG_W, @"Clamping FPS to maximum refresh rate: %d", _streamConfig.frameRate);
+#endif
         }
     }
     

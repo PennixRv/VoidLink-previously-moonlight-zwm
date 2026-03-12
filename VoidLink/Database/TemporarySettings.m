@@ -54,7 +54,24 @@
     self.enableGraphs = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableGraphs"];
     self.graphOpacity = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"graphOpacity"]];
     self.renderingBackend = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"renderingBackend"]];
-    self.framePacingMode = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"framePacingMode"]];
+
+    // tvOS settings use a simplified "useFramePacing" preference:
+    // - 0: Lowest Latency
+    // - 1: Smoothest Video
+    //
+    // Internally, the renderer expects FramePacingMode values (see DataManager.h):
+    // 0 = Off, 1 = Legacy, 2 = Queue.
+    //
+    // Keep backwards-compatibility with an older "framePacingMode" key if present.
+    NSNumber* rawFramePacingMode = [[NSUserDefaults standardUserDefaults] objectForKey:@"framePacingMode"];
+    if (rawFramePacingMode != nil) {
+        self.framePacingMode = @([rawFramePacingMode integerValue]);
+    } else {
+        NSInteger useFramePacingPreference = [[NSUserDefaults standardUserDefaults] integerForKey:@"useFramePacing"];
+        const NSInteger kFramePacingModeOff = 0;
+        const NSInteger kFramePacingModeQueue = 2;
+        self.framePacingMode = @(useFramePacingPreference ? kFramePacingModeQueue : kFramePacingModeOff);
+    }
 
     NSInteger _screenSize = [[NSUserDefaults standardUserDefaults] integerForKey:@"streamResolution"];
     switch (_screenSize) {
