@@ -10,7 +10,6 @@
 //
 
 #import "TemporarySettings.h"
-#import "OnScreenControls.h"
 
 @implementation TemporarySettings
 
@@ -33,17 +32,41 @@
     }
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
     
-    self.bitrate = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"bitrate"]];
-    assert([self.bitrate intValue] != 0);
-    self.framerate = [NSNumber numberWithDouble:[[NSUserDefaults standardUserDefaults] doubleForKey:@"framerate"]];
-    assert([self.framerate doubleValue] != 0.0);
-    self.audioConfig = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"audioConfig"]];
-    assert([self.audioConfig intValue] != 0);
-    self.preferredCodec = (typeof(self.preferredCodec))[[NSUserDefaults standardUserDefaults] integerForKey:@"preferredCodec"];
+    // These values are user-editable via Settings.bundle, so they must never hard-crash the app.
+    // Also note: Settings.bundle values are often stored as NSStrings (e.g., "60"), so we read
+    // via objectForKey + integerValue to avoid relying on numeric-only accessors.
+    NSInteger bitrateKbps = [[[NSUserDefaults standardUserDefaults] objectForKey:@"bitrate"] integerValue];
+    if (bitrateKbps <= 0) {
+        bitrateKbps = 20000;
+    }
+    self.bitrate = @(bitrateKbps);
+
+    NSInteger fps = [[[NSUserDefaults standardUserDefaults] objectForKey:@"framerate"] integerValue];
+    if (fps <= 0) {
+        fps = 60;
+    }
+    self.framerate = @(fps);
+
+    NSInteger audioConfig = [[[NSUserDefaults standardUserDefaults] objectForKey:@"audioConfig"] integerValue];
+    // Expected: 2, 6, 8 (Stereo, 5.1, 7.1). Fall back to stereo on invalid data.
+    if (!(audioConfig == 2 || audioConfig == 6 || audioConfig == 8)) {
+        audioConfig = 2;
+    }
+    self.audioConfig = @(audioConfig);
+
+    NSInteger preferredCodec = [[[NSUserDefaults standardUserDefaults] objectForKey:@"preferredCodec"] integerValue];
+    if (preferredCodec < 0 || preferredCodec > 3) {
+        preferredCodec = 0;
+    }
+    self.preferredCodec = (typeof(self.preferredCodec))preferredCodec;
     self.enableYUV444 = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableYUV444"];
     self.enablePIP = [[NSUserDefaults standardUserDefaults] boolForKey:@"enablePIP"];
     self.fullColorRange = [[NSUserDefaults standardUserDefaults] boolForKey:@"fullRange"];
-    self.frameQueueSize = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"frameQueueSize"]];
+    NSInteger frameQueueSize = [[[NSUserDefaults standardUserDefaults] objectForKey:@"frameQueueSize"] integerValue];
+    if (frameQueueSize < 0 || frameQueueSize > 5) {
+        frameQueueSize = 1;
+    }
+    self.frameQueueSize = @(frameQueueSize);
     self.playAudioOnPC = [[NSUserDefaults standardUserDefaults] boolForKey:@"audioOnPC"];
     self.enableHdr = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableHdr"];
     self.optimizeGames = [[NSUserDefaults standardUserDefaults] boolForKey:@"optimizeGames"];
@@ -52,8 +75,17 @@
     self.btMouseSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"btMouseSupport"];
     self.statsOverlayEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"statsOverlay"];
     self.enableGraphs = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableGraphs"];
-    self.graphOpacity = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"graphOpacity"]];
-    self.renderingBackend = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"renderingBackend"]];
+    NSInteger graphOpacity = [[[NSUserDefaults standardUserDefaults] objectForKey:@"graphOpacity"] integerValue];
+    if (graphOpacity < 0 || graphOpacity > 100) {
+        graphOpacity = 50;
+    }
+    self.graphOpacity = @(graphOpacity);
+
+    NSInteger renderingBackend = [[[NSUserDefaults standardUserDefaults] objectForKey:@"renderingBackend"] integerValue];
+    if (renderingBackend < 0 || renderingBackend > 1) {
+        renderingBackend = 0;
+    }
+    self.renderingBackend = @(renderingBackend);
 
     // tvOS settings use a simplified "useFramePacing" preference:
     // - 0: Lowest Latency
@@ -73,8 +105,8 @@
         self.framePacingMode = @(useFramePacingPreference ? kFramePacingModeQueue : kFramePacingModeOff);
     }
 
-    NSInteger _screenSize = [[NSUserDefaults standardUserDefaults] integerForKey:@"streamResolution"];
-    switch (_screenSize) {
+    NSInteger screenSize = [[[NSUserDefaults standardUserDefaults] objectForKey:@"streamResolution"] integerValue];
+    switch (screenSize) {
         case 0:
             self.height = [NSNumber numberWithInteger:720];
             self.width = [NSNumber numberWithInteger:1280];
@@ -92,9 +124,15 @@
             self.width = [NSNumber numberWithInteger:2560];
             break;
         default:
-            abort();
+            // Unknown value, fall back to 1080p.
+            self.height = [NSNumber numberWithInteger:1080];
+            self.width = [NSNumber numberWithInteger:1920];
+            break;
     }
-    self.onscreenControls = [NSNumber numberWithInteger:OnScreenControlsLevelOff];
+
+    // tvOS has no touchscreen. Keep OSC disabled even if CoreData has stale values.
+    // OnScreenControlsLevelOff is 0, but we intentionally avoid importing the OSC headers here.
+    self.onscreenControls = @(0);
 #else
     self.settingsMenuMode = settings.settingsMenuMode;
     self.settingsMenuWidth = settings.settingsMenuWidth;

@@ -1735,13 +1735,11 @@ static NSMutableSet* hostList;
     [_menuRecognizer addTarget:self action: @selector(switchToHostView)];
     _menuRecognizer.allowedPressTypes = [[NSArray alloc] initWithObjects:[NSNumber numberWithLong:UIPressTypeMenu], nil];
 
-#if defined(DEBUG)
-    // Debug-only: Play/Pause opens a local log viewer (helps diagnose tvOS sideload crashes).
+    // Play/Pause opens a local log viewer (helps diagnose tvOS sideload crashes).
     _debugLogsRecognizer = [[UITapGestureRecognizer alloc] init];
     [_debugLogsRecognizer addTarget:self action:@selector(showDebugLogs)];
     _debugLogsRecognizer.allowedPressTypes = @[@(UIPressTypePlayPause)];
     [self.view addGestureRecognizer:_debugLogsRecognizer];
-#endif
     
     self.navigationController.navigationBar.titleTextAttributes = [NSDictionary dictionaryWithObject:[UIColor whiteColor] forKey:NSForegroundColorAttributeName];
 #endif
@@ -1924,6 +1922,12 @@ static NSMutableSet* hostList;
 }
 
 -(void) updateResolutionAccordingly {
+#if TARGET_OS_TV
+    // tvOS uses Settings.bundle (NSUserDefaults) for stream resolution.
+    // Avoid mutating CoreData settings here to reduce startup surface and prevent
+    // stale iOS-only settings from influencing tvOS behavior.
+    return;
+#endif
     DataManager* dataMan = [[DataManager alloc] init];
     Settings *currentSettings = [dataMan retrieveSettings];
 
@@ -1943,6 +1947,11 @@ static NSMutableSet* hostList;
 }
 
 #if TARGET_OS_TV
+static NSString* const kVoidLinkTVLaunchInProgressKey = @"VoidLinkTVLaunchInProgress";
+static NSString* const kVoidLinkTVCrashCountKey = @"VoidLinkTVCrashCount";
+static NSString* const kVoidLinkTVSafeModeKey = @"VoidLinkTVSafeMode";
+static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason";
+
 -(void)handleCollectionViewLongPress:(UILongPressGestureRecognizer *)gestureRecognizer
 {
     // FIXME: Something is delaying touches so we only get to the Begin state
@@ -1963,7 +1972,56 @@ static NSMutableSet* hostList;
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
 }
 
-#if defined(DEBUG)
+- (void)tvosHandleLaunchHealthAndMaybeShowSafeModeAlert
+{
+    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+
+    BOOL safeMode = [defaults boolForKey:kVoidLinkTVSafeModeKey];
+    NSString* reason = [defaults stringForKey:kVoidLinkTVSafeModeReasonKey];
+    NSInteger crashCount = [defaults integerForKey:kVoidLinkTVCrashCountKey];
+
+    // Mark this launch as successful after we have been on-screen for a short time.
+    // If the app crashes before this point, the next launch will detect a crash loop.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [defaults setBool:NO forKey:kVoidLinkTVLaunchInProgressKey];
+        [defaults setInteger:0 forKey:kVoidLinkTVCrashCountKey];
+        [defaults setBool:NO forKey:kVoidLinkTVSafeModeKey];
+        [defaults removeObjectForKey:kVoidLinkTVSafeModeReasonKey];
+        [defaults synchronize];
+    });
+
+    if (!safeMode) {
+        return;
+    }
+
+    if (reason.length == 0) {
+        reason = @"Detected a previous crash during launch.";
+    }
+
+    NSString* message = [NSString stringWithFormat:
+                         @"VoidLink entered Safe Mode to avoid a crash loop.\n\nReason: %@\nCrash count: %ld\n\nSome video settings may have been reset to conservative defaults. You can open Logs to diagnose the issue or adjust settings in the Settings app.",
+                         reason, (long)crashCount];
+
+    UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Safe Mode"
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Open Logs"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction* action) {
+        (void)action;
+        [self showDebugLogs];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Open Settings"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction* action) {
+        (void)action;
+        [self openTvSettings:nil];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleCancel handler:nil]];
+
+    [[self activeViewController] presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)showDebugLogs
 {
     NSString* logPath = LoggerGetLogFilePath();
@@ -2012,7 +2070,6 @@ static NSMutableSet* hostList;
 
     [self.navigationController pushViewController:vc animated:YES];
 }
-#endif
 #endif
 
 -(void)beginForegroundRefresh
@@ -2129,6 +2186,11 @@ static NSMutableSet* hostList;
     //[self simulateSettingsButtonPress]; //force reload resolution table in the setting
     //[self simulateSettingsButtonPress];
     [self updateResolutionAccordingly];
+
+#if TARGET_OS_TV
+    [self tvosHandleLaunchHealthAndMaybeShowSafeModeAlert];
+#endif
+
     if([self needPopupAboutView])[self helpButtonTapped];
 }
 
