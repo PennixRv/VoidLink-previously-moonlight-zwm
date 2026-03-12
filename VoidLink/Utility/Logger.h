@@ -9,6 +9,7 @@
 #ifndef Limelight_Logger_h
 #define Limelight_Logger_h
 
+#import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
 #import <stdarg.h>
 
@@ -30,6 +31,11 @@ typedef enum {
 
 void Log(LogLevel level, NSString* fmt, ...);
 void LogTag(LogLevel level, NSString* tag, NSString* fmt, ...);
+
+// Best-effort file logging for debug builds (useful for tvOS sideload debugging where
+// attaching a live log stream is inconvenient). Safe to call multiple times.
+void LoggerInitFileLogging(void);
+NSString* LoggerGetLogFilePath(void);
 
 #ifdef __cplusplus
 }

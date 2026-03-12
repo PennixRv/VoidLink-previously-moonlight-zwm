@@ -87,6 +87,9 @@
 
 #if TARGET_OS_TV
     UITapGestureRecognizer* _menuRecognizer;
+#if defined(DEBUG)
+    UITapGestureRecognizer* _debugLogsRecognizer;
+#endif
 #endif
 }
 static NSMutableSet* hostList;
@@ -1731,6 +1734,14 @@ static NSMutableSet* hostList;
     _menuRecognizer = [[UITapGestureRecognizer alloc] init];
     [_menuRecognizer addTarget:self action: @selector(switchToHostView)];
     _menuRecognizer.allowedPressTypes = [[NSArray alloc] initWithObjects:[NSNumber numberWithLong:UIPressTypeMenu], nil];
+
+#if defined(DEBUG)
+    // Debug-only: Play/Pause opens a local log viewer (helps diagnose tvOS sideload crashes).
+    _debugLogsRecognizer = [[UITapGestureRecognizer alloc] init];
+    [_debugLogsRecognizer addTarget:self action:@selector(showDebugLogs)];
+    _debugLogsRecognizer.allowedPressTypes = @[@(UIPressTypePlayPause)];
+    [self.view addGestureRecognizer:_debugLogsRecognizer];
+#endif
     
     self.navigationController.navigationBar.titleTextAttributes = [NSDictionary dictionaryWithObject:[UIColor whiteColor] forKey:NSForegroundColorAttributeName];
 #endif
@@ -1951,6 +1962,58 @@ static NSMutableSet* hostList;
 {
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
 }
+
+#if defined(DEBUG)
+- (void)showDebugLogs
+{
+    NSString* logPath = LoggerGetLogFilePath();
+    if (logPath == nil) {
+        LoggerInitFileLogging();
+        logPath = LoggerGetLogFilePath();
+    }
+
+    if (logPath == nil) {
+        NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+        NSString* cacheDir = paths.firstObject ?: NSTemporaryDirectory();
+        NSString* logDir = [cacheDir stringByAppendingPathComponent:@"VoidLinkLogs"];
+        logPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.log"];
+    }
+
+    NSError* error = nil;
+    NSString* content = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:&error];
+    if (content == nil) {
+        content = [NSString stringWithFormat:@"(Failed to read log file)\npath: %@\nerror: %@\n", logPath, error];
+    }
+
+    UIViewController* vc = [[UIViewController alloc] init];
+    vc.title = @"Logs";
+    vc.view.backgroundColor = [UIColor blackColor];
+
+    UITextView* textView = [[UITextView alloc] initWithFrame:CGRectZero];
+    textView.translatesAutoresizingMaskIntoConstraints = NO;
+    textView.backgroundColor = [UIColor blackColor];
+    textView.textColor = [UIColor whiteColor];
+    textView.editable = NO;
+    textView.selectable = YES;
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
+        textView.font = [UIFont monospacedSystemFontOfSize:18 weight:UIFontWeightRegular];
+    } else {
+        textView.font = [UIFont systemFontOfSize:18];
+    }
+    textView.text = [NSString stringWithFormat:@"Log file: %@\n\n%@", logPath, content];
+
+    [vc.view addSubview:textView];
+    UILayoutGuide* safe = vc.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [textView.topAnchor constraintEqualToAnchor:safe.topAnchor],
+        [textView.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
+        [textView.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
+        [textView.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+    ]];
+
+    [self.navigationController pushViewController:vc animated:YES];
+}
+#endif
 #endif
 
 -(void)beginForegroundRefresh
