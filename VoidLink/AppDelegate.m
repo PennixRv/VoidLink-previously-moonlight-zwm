@@ -177,7 +177,6 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
         return _persistentStoreCoordinator;
     }
     
-    NSError *error = nil;
     _persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc] initWithManagedObjectModel:[self managedObjectModel]];
     NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
                              [NSNumber numberWithBool:YES], NSMigratePersistentStoresAutomaticallyOption,
@@ -194,18 +193,44 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
     
     // We must ensure the persistent store is ready to opened
     [self preparePersistentStore];
-    
-    if (![_persistentStoreCoordinator addPersistentStoreWithType:storeType configuration:nil URL:[self getStoreURL] options:options error:&error]) {
-        // Log the error
-        Log(LOG_E, @"Critical database error: %@, %@", error, [error userInfo]);
-        
-        // Drop the database
+
+    NSURL* storeURL = [self getStoreURL];
+    NSError* error = nil;
+
+    // Previous implementation used recursion and could loop indefinitely if the
+    // persistent store could never be created (eventually stack overflowing).
+    // Retry once after dropping the database, then fall back to in-memory storage.
+    const int kMaxAttempts = 2;
+    for (int attempt = 1; attempt <= kMaxAttempts; attempt++) {
+        error = nil;
+        if ([_persistentStoreCoordinator addPersistentStoreWithType:storeType
+                                                     configuration:nil
+                                                               URL:storeURL
+                                                           options:options
+                                                             error:&error]) {
+            return _persistentStoreCoordinator;
+        }
+
+        Log(LOG_E, @"Critical database error (attempt %d/%d) opening %@ store at %@: %@, %@",
+            attempt, kMaxAttempts, storeType, storeURL, error, [error userInfo]);
+
+        // On failure, drop the on-disk database and try again.
         [self dropDatabase];
-        
-        // Try again
-        return [self persistentStoreCoordinator];
+        [self preparePersistentStore];
     }
-    
+
+    // If the DB still can't be opened, continue without persistence instead of crashing.
+    error = nil;
+    if (![_persistentStoreCoordinator addPersistentStoreWithType:NSInMemoryStoreType
+                                                 configuration:nil
+                                                           URL:nil
+                                                       options:options
+                                                         error:&error]) {
+        Log(LOG_E, @"Failed to create in-memory persistent store: %@, %@", error, [error userInfo]);
+    } else {
+        Log(LOG_W, @"Using in-memory persistent store. Hosts/settings will not persist across launches.");
+    }
+
     return _persistentStoreCoordinator;
 }
 
