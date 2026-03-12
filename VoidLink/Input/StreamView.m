@@ -347,6 +347,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     }
 }
 
+#if !TARGET_OS_TV
 -(void)readyToBringUpSoftKeyboardByToolbox{
     NSLog(@"change num of fingers required");
     [self refreshKeyboardToggleRecognizer:1];
@@ -362,6 +363,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     ]];
 
 }
+#endif
 
 
 - (void)toggleKeyboard{
