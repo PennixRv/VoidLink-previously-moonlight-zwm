@@ -203,19 +203,21 @@
 			<string>preferredCodec</string>
 			<key>DefaultValue</key>
 			<string>0</string>
-			<key>Values</key>
-			<array>
-				<string>0</string>
-				<string>1</string>
-				<string>2</string>
-			</array>
-			<key>Titles</key>
-			<array>
-				<string>Auto</string>
-				<string>H.264</string>
-				<string>HEVC</string>
-			</array>
-		</dict>
+				<key>Values</key>
+				<array>
+					<string>0</string>
+					<string>1</string>
+					<string>2</string>
+					<string>3</string>
+				</array>
+				<key>Titles</key>
+				<array>
+					<string>Auto</string>
+					<string>H.264</string>
+					<string>HEVC</string>
+					<string>AV1</string>
+				</array>
+			</dict>
 		<dict>
 			<key>Type</key>
 			<string>PSMultiValueSpecifier</string>

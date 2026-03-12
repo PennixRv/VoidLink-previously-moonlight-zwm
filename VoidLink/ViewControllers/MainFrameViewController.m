@@ -2377,14 +2377,27 @@ static NSMutableSet* hostList;
     UIAppView* appView = [[UIAppView alloc] initWithApp:app cache:_boxArtCache andCallback:self];
     appView.updateLoopDelegate = (id<AppViewUpdateLoopDelegate>)self;
     
+#if TARGET_OS_TV
+    cell.clipsToBounds = NO;
+    cell.contentView.clipsToBounds = NO;
+    cell.layer.masksToBounds = NO;
+    cell.layer.shadowOpacity = 0.0;
+#endif
+    
     if (appView.bounds.size.width > 10.0) {
         CGFloat scale = cell.bounds.size.width / appView.bounds.size.width;
         [appView setCenter:CGPointMake(appView.bounds.size.width / 2 * scale, appView.bounds.size.height / 2 * scale)];
         appView.transform = CGAffineTransformMakeScale(scale, scale); // view resize
     }
     
-    [cell.subviews.firstObject removeFromSuperview]; // Remove a view that was previously added
-    [cell addSubview:appView];
+    // Replace the previously-rendered tile view (safe on tvOS where the cell may have extra subviews).
+    static const NSInteger kVoidLinkAppViewTag = 991104;
+    UIView* existing = [cell.contentView viewWithTag:kVoidLinkAppViewTag];
+    if (existing != nil) {
+        [existing removeFromSuperview];
+    }
+    appView.tag = kVoidLinkAppViewTag;
+    [cell.contentView addSubview:appView];
     // [self.settingsButton setEnabled:![self isIPhonePortrait]]; // update settings button after host is clicked & appview loaded
     // Shadow opacity is controlled inside UIAppView based on whether the app
     // is hidden or not during the update cycle.
@@ -2564,6 +2577,86 @@ static NSMutableSet* hostList;
         [context.nextFocusedView setAlpha:0.8];
     }
     [context.previouslyFocusedView setAlpha:1.0];
+#else
+    // tvOS: provide a consistent focus animation for app tiles (scale + shadow + subtle parallax).
+    UICollectionViewCell* (^findOwningCell)(UIView*) = ^UICollectionViewCell* (UIView* view) {
+        UIView* v = view;
+        while (v != nil && ![v isKindOfClass:[UICollectionViewCell class]]) {
+            v = v.superview;
+        }
+        return (UICollectionViewCell*)v;
+    };
+    
+    UICollectionViewCell* prevCell = findOwningCell(context.previouslyFocusedView);
+    UICollectionViewCell* nextCell = findOwningCell(context.nextFocusedView);
+    
+    // Only apply these effects to our app collection view cells.
+    if (prevCell != nil && [self.collectionView indexPathForCell:prevCell] == nil) {
+        prevCell = nil;
+    }
+    if (nextCell != nil && [self.collectionView indexPathForCell:nextCell] == nil) {
+        nextCell = nil;
+    }
+    
+    void (^removeAllMotionEffects)(UIView*) = ^(UIView* view) {
+        if (view == nil) {
+            return;
+        }
+        NSArray<UIMotionEffect*>* effects = [view.motionEffects copy];
+        for (UIMotionEffect* effect in effects) {
+            [view removeMotionEffect:effect];
+        }
+    };
+    
+    void (^applyUnfocused)(UICollectionViewCell*) = ^(UICollectionViewCell* cell) {
+        if (cell == nil) {
+            return;
+        }
+        removeAllMotionEffects(cell);
+        cell.transform = CGAffineTransformIdentity;
+        cell.layer.shadowOpacity = 0.0;
+        cell.layer.shadowRadius = 0.0;
+        cell.layer.shadowOffset = CGSizeZero;
+    };
+    
+    void (^applyFocused)(UICollectionViewCell*) = ^(UICollectionViewCell* cell) {
+        if (cell == nil) {
+            return;
+        }
+        cell.clipsToBounds = NO;
+        cell.contentView.clipsToBounds = NO;
+        cell.layer.masksToBounds = NO;
+        
+        CGAffineTransform t = CGAffineTransformMakeScale(1.08, 1.08);
+        cell.transform = t;
+        
+        cell.layer.shadowColor = [UIColor blackColor].CGColor;
+        cell.layer.shadowOffset = CGSizeMake(0, 18);
+        cell.layer.shadowOpacity = GenericUtils.liquidGlassEnabled ? 0.14 : 0.20;
+        cell.layer.shadowRadius = 22.0;
+        
+        // Subtle parallax, similar to the Hosts focus treatment.
+        UIInterpolatingMotionEffect* motionV =
+            [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.y"
+                                                           type:UIInterpolatingMotionEffectTypeTiltAlongVerticalAxis];
+        motionV.maximumRelativeValue = @(8);
+        motionV.minimumRelativeValue = @(-8);
+        UIInterpolatingMotionEffect* motionH =
+            [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.x"
+                                                           type:UIInterpolatingMotionEffectTypeTiltAlongHorizontalAxis];
+        motionH.maximumRelativeValue = @(8);
+        motionH.minimumRelativeValue = @(-8);
+        
+        // Ensure we don't stack duplicates if focus updates re-enter.
+        removeAllMotionEffects(cell);
+        [cell addMotionEffect:motionH];
+        [cell addMotionEffect:motionV];
+    };
+    
+    [coordinator addCoordinatedAnimations:^{
+        applyUnfocused(prevCell);
+        applyFocused(nextCell);
+    } completion:nil];
 #endif
 }
 

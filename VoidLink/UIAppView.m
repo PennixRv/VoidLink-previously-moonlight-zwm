@@ -54,17 +54,19 @@ static UIImage* noImage;
     [_appImage setImage:noImage];
     
     [self addSubview:_appImage];
-    
+
+#if TARGET_OS_TV
+    // tvOS: collection view handles focus and selection. Keep UIAppView visual-only so we don't
+    // fight the focus engine or trigger duplicate actions (UIButton primary action vs cell select).
+    self.userInteractionEnabled = NO;
+#else
     // Use UIContextMenuInteraction on iOS 13.0+ and a standard UILongPressGestureRecognizer
-    // for tvOS devices and iOS prior to 13.0.
-#if !TARGET_OS_TV
+    // for iOS prior to 13.0.
     if (@available(iOS 13.0, *)) {
         UIContextMenuInteraction* rightClickInteraction = [[UIContextMenuInteraction alloc] initWithDelegate:self];
         [self addInteraction:rightClickInteraction];
     }
-    else
-#endif
-    {
+    else {
         UILongPressGestureRecognizer* longPressRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(appLongClicked:)];
         [self addGestureRecognizer:longPressRecognizer];
     }
@@ -73,6 +75,7 @@ static UIImage* noImage;
     
     [self addTarget:self action:@selector(buttonSelected:) forControlEvents:UIControlEventTouchDown];
     [self addTarget:self action:@selector(buttonDeselected:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchCancel | UIControlEventTouchDragExit];
+#endif
     
 #if TARGET_OS_TV
     _appImage.adjustsImageWhenAncestorFocused = YES;
@@ -265,9 +268,7 @@ static UIImage* noImage;
     if (self.superview == nil || ![self.updateLoopDelegate isInAppView]) {
         return;
     }
-    
-    NSLog(@"appview update loop %f", CACurrentMediaTime());
-    
+
     // Update the app image if neccessary
     if ((_appOverlay != nil && ![_app.id isEqualToString:_app.host.currentGame]) ||
         (_appOverlay == nil && [_app.id isEqualToString:_app.host.currentGame])) {
@@ -278,7 +279,9 @@ static UIImage* noImage;
     // cells for hidden apps, it makes them look bad when the shadow draws
     // through the app tile.
     // self.superview.layer.shadowOpacity = _app.hidden ? 0.0f : 0.5f;
+#if !TARGET_OS_TV
     self.superview.layer.shadowOpacity = 0;
+#endif
 
     // Update opacity if neccessary
     [self setAlpha:_app.hidden ? 0.4 : 1.0];
