@@ -2105,7 +2105,14 @@ static NSMutableSet* hostList;
     // view, so we won't get a return to active notification
     // for that which would normally fire beginForegroundRefresh.
     
-    [self.view addSubview:self.collectionView];
+    // On iOS (with the side-menu layout), we may temporarily remove subviews and need to
+    // re-add the collection view. On tvOS, MainFrameViewController is a UICollectionViewController
+    // whose root view is already the collection view, so adding it as a subview would crash.
+    if (self.collectionView != nil &&
+        self.view != self.collectionView &&
+        self.collectionView.superview == nil) {
+        [self.view addSubview:self.collectionView];
+    }
     [self initHostCollection];
     if(!_enteredAppView) [self switchToHostView];
     
