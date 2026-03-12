@@ -544,7 +544,11 @@
     [super viewDidAppear:animated];
     _viewJustLoaded = false;
     _deviceWindow = self.view.window;
+#if TARGET_OS_TV
+    previousOnScreenWidgetEnabled = false;
+#else
     previousOnScreenWidgetEnabled = [_streamView isOnScreenWidgetEnabled];
+#endif
 #if !TARGET_OS_TV
     if (@available(iOS 13.0, *)) {
         UIScreen *currentScreen = self.view.window.windowScene.screen;
@@ -973,11 +977,20 @@
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification{
+#if TARGET_OS_TV
+    (void)notification;
+    return;
+#else
     [_streamView keyboardWillShow:notification];
+#endif
 }
 
 - (void)keyboardWillHide{
+#if TARGET_OS_TV
+    return;
+#else
     [_streamView keyboardWillHide];
+#endif
 }
 
 - (void)handleWidgetLayoutGesture{
