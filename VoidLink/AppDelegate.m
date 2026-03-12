@@ -14,7 +14,8 @@
 #import "VoidLink-Swift.h"
 
 #if TARGET_OS_TV
-@class VoidLinkTVSafeModeViewController;
+@interface VoidLinkTVSafeModeViewController : UIViewController
+@end
 #endif
 
 @implementation AppDelegate
@@ -359,9 +360,6 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 
 @interface AppDelegate (TVSafeMode)
 - (void)tvosSwitchToMainUI;
-@end
-
-@interface VoidLinkTVSafeModeViewController : UIViewController
 @end
 
 @implementation VoidLinkTVSafeModeViewController

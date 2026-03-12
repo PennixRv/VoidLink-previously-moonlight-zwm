@@ -295,8 +295,14 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
     // System audio engine initialization
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* tempSettings = [dataMan getSettings];
+    AVAudioSessionCategoryOptions bluetoothAudioOption = 0;
+#if TARGET_OS_TV
+    // tvOS: playback-only. Avoid tvOS 17+ mic routing options.
+    bluetoothAudioOption = AVAudioSessionCategoryOptionAllowBluetoothA2DP;
+#else
     bool useBluetoothD2P = tempSettings.useBuiltinMic || !tempSettings.redirectMic;
-    AVAudioSessionCategoryOptions bluetoothAudioOption = useBluetoothD2P ? AVAudioSessionCategoryOptionAllowBluetoothA2DP : AVAudioSessionCategoryOptionAllowBluetooth;
+    bluetoothAudioOption = useBluetoothD2P ? AVAudioSessionCategoryOptionAllowBluetoothA2DP : AVAudioSessionCategoryOptionAllowBluetooth;
+#endif
     AVAudioSessionCategoryOptions volumeMixOption = tempSettings.duckOtherApps ? AVAudioSessionCategoryOptionDuckOthers : AVAudioSessionCategoryOptionMixWithOthers;
     AVAudioSession *session = [AVAudioSession sharedInstance];
 #if TARGET_OS_TV
