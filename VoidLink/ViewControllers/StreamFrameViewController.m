@@ -1759,8 +1759,22 @@
 - (void) updatePreferredDisplayMode:(BOOL)streamActive {
 #if TARGET_OS_TV
     if (@available(tvOS 11.2, *)) {
-        UIWindow* window = [[[UIApplication sharedApplication] delegate] window];
-        AVDisplayManager* displayManager = [window avDisplayManager];
+        // On tvOS we rely on AVDisplayManager to request HDMI refresh-rate matching.
+        // Be defensive when locating the active window, since tvOS apps may be
+        // storyboard-driven and the AppDelegate window can be nil in some setups.
+        UIWindow* window = self.view.window;
+        if (window == nil) {
+            window = [UIApplication sharedApplication].windows.firstObject;
+        }
+        if (window == nil) {
+            window = [[[UIApplication sharedApplication] delegate] window];
+        }
+
+        AVDisplayManager* displayManager = window ? [window avDisplayManager] : nil;
+        if (displayManager == nil) {
+            Log(LOG_W, @"AVDisplayManager unavailable; cannot request HDMI refresh-rate matching");
+            return;
+        }
         
         // This logic comes from Kodi and MrMC
         if (streamActive) {

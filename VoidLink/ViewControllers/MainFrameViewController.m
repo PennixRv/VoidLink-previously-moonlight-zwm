@@ -2024,24 +2024,58 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
 
 - (void)showDebugLogs
 {
-    NSString* logPath = LoggerGetLogFilePath();
-    if (logPath == nil) {
+    // LoggerInitFileLogging() rotates the previous log to `voidlink-debug.prev.log`.
+    // When diagnosing crash-on-launch issues, the *previous* log often contains the crash.
+    NSString* currentLogPath = LoggerGetLogFilePath();
+    if (currentLogPath == nil) {
         LoggerInitFileLogging();
-        logPath = LoggerGetLogFilePath();
+        currentLogPath = LoggerGetLogFilePath();
     }
 
-    if (logPath == nil) {
+    NSString* logDir = nil;
+    if (currentLogPath != nil) {
+        logDir = [currentLogPath stringByDeletingLastPathComponent];
+    } else {
         NSArray* paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
         NSString* cacheDir = paths.firstObject ?: NSTemporaryDirectory();
-        NSString* logDir = [cacheDir stringByAppendingPathComponent:@"VoidLinkLogs"];
-        logPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.log"];
+        logDir = [cacheDir stringByAppendingPathComponent:@"VoidLinkLogs"];
+        currentLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.log"];
     }
 
-    NSError* error = nil;
-    NSString* content = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:&error];
-    if (content == nil) {
-        content = [NSString stringWithFormat:@"(Failed to read log file)\npath: %@\nerror: %@\n", logPath, error];
+    NSString* prevLogPath = [logDir stringByAppendingPathComponent:@"voidlink-debug.prev.log"];
+
+    NSError* currentError = nil;
+    NSString* currentContent = [NSString stringWithContentsOfFile:currentLogPath encoding:NSUTF8StringEncoding error:&currentError];
+    if (currentContent == nil) {
+        currentContent = [NSString stringWithFormat:@"(Failed to read current log)\npath: %@\nerror: %@\n", currentLogPath, currentError];
     }
+
+    NSError* prevError = nil;
+    NSString* prevContent = [NSString stringWithContentsOfFile:prevLogPath encoding:NSUTF8StringEncoding error:&prevError];
+    if (prevContent == nil) {
+        prevContent = [NSString stringWithFormat:@"(No previous log, or failed to read)\npath: %@\nerror: %@\n", prevLogPath, prevError];
+    }
+
+    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+    BOOL safeMode = [defaults boolForKey:kVoidLinkTVSafeModeKey];
+    NSString* safeReason = [defaults stringForKey:kVoidLinkTVSafeModeReasonKey] ?: @"";
+    NSInteger crashCount = [defaults integerForKey:kVoidLinkTVCrashCountKey];
+    BOOL launchInProgress = [defaults boolForKey:kVoidLinkTVLaunchInProgressKey];
+
+    NSString* header = [NSString stringWithFormat:
+                        @"Safe Mode: %@\nCrash count: %ld\nLaunch in progress: %@\nReason: %@\n\n",
+                        safeMode ? @"YES" : @"NO",
+                        (long)crashCount,
+                        launchInProgress ? @"YES" : @"NO",
+                        safeReason];
+
+    NSString* content = [NSString stringWithFormat:
+                         @"%@=== Current Log ===\npath: %@\n\n%@\n\n=== Previous Log ===\npath: %@\n\n%@\n",
+                         header,
+                         currentLogPath,
+                         currentContent,
+                         prevLogPath,
+                         prevContent];
 
     UIViewController* vc = [[UIViewController alloc] init];
     vc.title = @"Logs";
@@ -2057,7 +2091,7 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
     } else {
         textView.font = [UIFont systemFontOfSize:18];
     }
-    textView.text = [NSString stringWithFormat:@"Log file: %@\n\n%@", logPath, content];
+    textView.text = content;
 
     [vc.view addSubview:textView];
     UILayoutGuide* safe = vc.view.safeAreaLayoutGuide;
