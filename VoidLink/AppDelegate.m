@@ -96,7 +96,31 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
         return YES;
     }
 
-    [self tvosSwitchToMainUI];
+    // Catch storyboard decode issues (NSUnknownKeyException, invalid segues, etc.) so we can
+    // present Safe Mode instead of hard-crashing on launch. This is particularly helpful for
+    // tvOS sideload builds where device logs can be hard to access.
+    @try {
+        [self tvosSwitchToMainUI];
+    } @catch (NSException* exception) {
+        Log(LOG_E, @"Exception during tvOS startup: %@\nCall stack: %@", exception, exception.callStackSymbols);
+
+        NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setBool:YES forKey:kVoidLinkTVSafeModeKey];
+        [defaults setObject:[NSString stringWithFormat:@"Startup exception: %@", exception.reason ?: @"(no reason)"]
+                     forKey:kVoidLinkTVSafeModeReasonKey];
+        [defaults synchronize];
+
+        UIViewController* safeVC = [[VoidLinkTVSafeModeViewController alloc] init];
+        UINavigationController* nav = [[UINavigationController alloc] initWithRootViewController:safeVC];
+        nav.navigationBar.translucent = NO;
+        nav.navigationBar.barTintColor = [UIColor blackColor];
+        nav.navigationBar.titleTextAttributes = @{ NSForegroundColorAttributeName : [UIColor whiteColor] };
+        self.window.rootViewController = nav;
+        [self.window makeKeyAndVisible];
+
+        // If the app stays alive long enough to show the Safe Mode UI, clear the crash-loop marker.
+        [self tvosScheduleLaunchSuccessMarkerClear];
+    }
     return YES;
 }
 

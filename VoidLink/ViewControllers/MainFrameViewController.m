@@ -529,7 +529,9 @@ static NSMutableSet* hostList;
     //_appManager = [[AppAssetManager alloc] initWithCallback:self];
     [self.collectionView setCollectionViewLayout:self.collectionViewLayout];
     [self.collectionView reloadData]; //for new scroll host view reloading mechanism
-    [self.view addSubview:self.collectionView]; //for new scroll host view reloading mechanism
+#if !TARGET_OS_TV
+    [self.view addSubview:self.collectionView]; // iOS-only side-menu layout workaround
+#endif
     
 #if TARGET_OS_TV
     // Intercept the menu key to go back to the host page
@@ -1826,7 +1828,11 @@ static NSMutableSet* hostList;
         [self unregisterControllerCallbacks:controller];
     }];
     
+    // tvOS has a different input model (Focus Engine + remote text input). For sideload builds
+    // we keep startup surface minimal and avoid touching keyboard/first-responder APIs here.
+#if !TARGET_OS_TV
     [self prewarmSoftKeyboard];
+#endif
 
 #if !TARGET_OS_TV
     // tvOS builds don't use IAP flows (sideload usage, and product IDs are iOS-scoped).
@@ -1859,6 +1865,9 @@ static NSMutableSet* hostList;
 }
 
 - (void)prewarmSoftKeyboard {
+#if TARGET_OS_TV
+    return;
+#else
     dispatch_async(dispatch_get_main_queue(), ^{
         UITextField *tf = [[UITextField alloc] initWithFrame:CGRectZero];
         tf.hidden = YES;
@@ -1867,6 +1876,7 @@ static NSMutableSet* hostList;
         [tf resignFirstResponder];
         [tf removeFromSuperview];
     });
+#endif
 }
 
 -(void)viewDidLayoutSubviews{
