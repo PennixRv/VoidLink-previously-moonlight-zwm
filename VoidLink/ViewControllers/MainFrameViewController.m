@@ -819,6 +819,7 @@ static NSMutableSet* hostList;
     _streamConfig.appName = app.name;
     _streamConfig.serverCert = app.host.serverCert;
     _streamConfig.serverCodecModeSupport = app.host.serverCodecModeSupport;
+    _streamConfig.isNvidiaServerSoftware = app.host.isNvidiaServerSoftware;
     [self reloadStreamConfig];
 }
 
@@ -826,7 +827,14 @@ static NSMutableSet* hostList;
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* streamSettings = [dataMan getSettings];
     
-    _streamConfig.frameRate = [streamSettings.framerate intValue];
+    // Record the raw requested values (after applying presets at the settings layer),
+    // then apply any host-specific clamps below.
+    int requestedFps = [streamSettings.framerate intValue];
+    int requestedBitrate = [streamSettings.bitrate intValue];
+    _streamConfig.requestedFrameRate = requestedFps;
+    _streamConfig.requestedBitRate = requestedBitrate;
+
+    _streamConfig.frameRate = requestedFps;
     if (@available(iOS 10.3, *)) {
         UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
         NSInteger maximumFramesPerSecond = window.screen.maximumFramesPerSecond;
@@ -862,7 +870,23 @@ static NSMutableSet* hostList;
     }
 #endif
     
-    _streamConfig.bitRate = [streamSettings.bitrate intValue];
+    _streamConfig.bitRate = requestedBitrate;
+
+#if TARGET_OS_TV
+    // tvOS policy: >60 FPS and >100 Mbps are treated as Sunshine-only targets.
+    // On GFE/GameStream (NVIDIA server software), clamp to stable, well-supported values.
+    if (_streamConfig.isNvidiaServerSoftware) {
+        if (_streamConfig.frameRate > 60) {
+            Log(LOG_W, @"Host is not Sunshine (NVIDIA/GFE). Falling back to 60 FPS (requested %d).", _streamConfig.requestedFrameRate);
+            _streamConfig.frameRate = 60;
+        }
+        if (_streamConfig.bitRate > 100000) {
+            Log(LOG_W, @"Host is not Sunshine (NVIDIA/GFE). Falling back to 100 Mbps (requested %d Kbps).", _streamConfig.requestedBitRate);
+            _streamConfig.bitRate = 100000;
+        }
+    }
+#endif
+
     _streamConfig.optimizeGameSettings = streamSettings.optimizeGames;
     _streamConfig.playAudioOnPC = streamSettings.playAudioOnPC;
     _streamConfig.redirectMic = streamSettings.redirectMic;

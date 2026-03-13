@@ -36,6 +36,7 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
 static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 #endif
 
+#if !TARGET_OS_TV
 #pragma mark - UISceneSession lifecycle
 
 - (UISceneConfiguration *)application:(UIApplication *)application configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession options:(UISceneConnectionOptions *)options API_AVAILABLE(ios(13.0)){
@@ -44,6 +45,7 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 
 - (void)application:(UIApplication *)application didDiscardSceneSessions:(NSSet<UISceneSession *> *)sceneSessions API_AVAILABLE(ios(13.0)){
 }
+#endif
 
 #if TARGET_OS_TV
 - (void)tvosSwitchToMainUI

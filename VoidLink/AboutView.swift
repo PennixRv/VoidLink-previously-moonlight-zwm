@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-@available(iOS 13.0, *)
+@available(iOS 13.0, tvOS 13.0, *)
 
 public struct AboutView: View {
     @Environment(\.presentationMode) var presentationMode

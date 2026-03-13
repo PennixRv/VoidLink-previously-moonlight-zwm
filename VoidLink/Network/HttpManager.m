@@ -281,13 +281,15 @@
         return nil;
     }
     
-	    // Using an FPS value over 60 causes SOPS to default to 720p60,
-	    // so force it to 0 to ensure the correct resolution is set. We
-	    // used to use 60 here but that locked the frame rate to 60 FPS
-	    // on GFE 3.20.3. We do not do this hack for Sunshine (which is
-	    // indicated by a negative version in the last field.
+	    // NOTE: In practice, >60 FPS modes are treated as Sunshine-only on tvOS.
+	    // For non-Sunshine (GFE/GameStream) hosts, keep the launch request conservative to avoid
+	    // triggering resolution/SOPS quirks that historically forced 720p60.
 	    BOOL isSunshine = (config.appVersion != nil) && [config.appVersion containsString:@".-"];
-	    int fps = (config.frameRate > 60 && !isSunshine) ? 0 : config.frameRate;
+	    int fps = config.frameRate;
+	    if (fps > 60 && !isSunshine) {
+	        Log(LOG_W, @"Non-Sunshine host requested FPS %d; clamping launch request to 60 FPS for compatibility", fps);
+	        fps = 60;
+	    }
 
 	    // Using a non-standard resolution (> 720p but not 1080p/4K) can cause GFE to force SOPS down to 720p60.
 	    // Follow Android Moonlight's behavior and disable SOPS in that case (Sunshine doesn't need this hack).

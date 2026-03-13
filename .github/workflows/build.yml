@@ -16,13 +16,20 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Xcode Version
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
       - name: List Xcode Schemes
         run: xcodebuild -project VoidLink.xcodeproj -list
 
       - name: Xcodebuild (tvOS)
         run: |
+          set -euo pipefail
           DERIVED_DATA="$PWD/build/DerivedData"
-          xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' -derivedDataPath "$DERIVED_DATA" archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
+          mkdir -p "$PWD/build/tvos"
+          xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' -derivedDataPath "$DERIVED_DATA" archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" 2>&1 | tee "$PWD/build/tvos/xcodebuild.log"
           mkdir -p ./build/tvos/IPA/Payload
           cp -r ./build/tvos/VoidLinkTV.xcarchive/Products/Applications/VoidLinkTV.app ./build/tvos/IPA/Payload/VoidLinkTV.app
 
@@ -31,7 +38,22 @@ jobs:
           APP="./build/tvos/IPA/Payload/VoidLinkTV.app"
           test -f "$APP/Frameworks/OpenSSL.framework/OpenSSL"
 
-          python3 ./BuildScripts/weaklink_opengles.py ./build/tvos/IPA/Payload/VoidLinkTV.app/VoidLinkTV
+          python3 ./BuildScripts/weaklink_opengles.py "$APP/VoidLinkTV"
+
+          # Hard gate: ensure nothing in the bundle strongly links forbidden legacy graphics/audio frameworks.
+          FORBIDDEN_REGEX="OpenGLES\\.framework|GLKit\\.framework|OpenAL\\.framework"
+          FOUND=0
+          while IFS= read -r -d '' F; do
+            if file "$F" | grep -q "Mach-O"; then
+              if otool -L "$F" | grep -nE "$FORBIDDEN_REGEX" >/dev/null; then
+                echo "Forbidden linkage detected in: $F"
+                otool -L "$F" | grep -nE "$FORBIDDEN_REGEX" || true
+                FOUND=1
+              fi
+            fi
+          done < <(find "$APP" -type f -perm -111 -print0)
+          test "$FOUND" -eq 0
+
           cd ./build/tvos/IPA && zip -r ../VoidLink-tvOS.ipa ./Payload && cd ../..
 
       - name: Upload tvOS IPA Artifact
@@ -39,3 +61,15 @@ jobs:
         with:
           name: VoidLink-tvOS.ipa
           path: build/tvos/VoidLink-tvOS.ipa
+
+      - name: Upload tvOS dSYMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoidLinkTV.dSYMs
+          path: build/tvos/VoidLinkTV.xcarchive/dSYMs
+
+      - name: Upload Xcodebuild Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild.log
+          path: build/tvos/xcodebuild.log

@@ -49,6 +49,7 @@ static OPUS_MULTISTREAM_CONFIGURATION audioConfig;
 static void* audioBuffer;
 static float volume = 1.0;
 static int audioFrameSize;
+static bool sdlAudioSubsystemInitialized;
 
 static bool useSystemAudioEngine;
 static bool audioSessionInterrupted;
@@ -244,29 +245,11 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit)
 int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, void* context, int flags)
 {
     int err;
-    SDL_AudioSpec want, have;
-    
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-        Log(LOG_E, @"Failed to initialize audio subsystem: %s\n", SDL_GetError());
-        return -1;
-    }
-        
-    SDL_zero(want);
-    want.freq = opusConfig->sampleRate;
-    want.format = AUDIO_F32;
-    want.channels = opusConfig->channelCount;
-    want.samples = opusConfig->samplesPerFrame;
 
-    audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-    if (audioDevice == 0) {
-        Log(LOG_E, @"Failed to open audio device: %s\n", SDL_GetError());
-        ArCleanup();
-        return -1;
-    }
-    
+    // Store the negotiated Opus stream configuration (sample rate, channel count, etc).
     audioConfig = *opusConfig;
     audioFrameSize = opusConfig->samplesPerFrame * sizeof(float) * opusConfig->channelCount;
-    audioBuffer = SDL_malloc(audioFrameSize);
+    audioBuffer = malloc(audioFrameSize);
     if (audioBuffer == NULL) {
         Log(LOG_E, @"Failed to allocate audio frame buffer");
         ArCleanup();
@@ -285,14 +268,7 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
         return -1;
     }
     
-    // Start playback
-    SDL_PauseAudioDevice(audioDevice, 0);
-    
-    // [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
-
-    // return 0;
-    
-    // System audio engine initialization
+    // Configure system audio session (always). Even SDL audio ultimately uses AVAudioSession under the hood.
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* tempSettings = [dataMan getSettings];
     AVAudioSessionCategoryOptions bluetoothAudioOption = 0;
@@ -322,7 +298,36 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
     [session setActive:YES error:nil];
     audioSessionInterrupted = false;
 
-    AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+    // Choose exactly one output pipeline.
+    // Stable-first: stereo uses the system audio engine; multichannel uses SDL output.
+    if (useSystemAudioEngine) {
+        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+    } else {
+        SDL_AudioSpec want, have;
+
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+            Log(LOG_E, @"Failed to initialize audio subsystem: %s\n", SDL_GetError());
+            ArCleanup();
+            return -1;
+        }
+        sdlAudioSubsystemInitialized = true;
+
+        SDL_zero(want);
+        want.freq = opusConfig->sampleRate;
+        want.format = AUDIO_F32;
+        want.channels = opusConfig->channelCount;
+        want.samples = opusConfig->samplesPerFrame;
+
+        audioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+        if (audioDevice == 0) {
+            Log(LOG_E, @"Failed to open audio device: %s\n", SDL_GetError());
+            ArCleanup();
+            return -1;
+        }
+
+        // Start playback
+        SDL_PauseAudioDevice(audioDevice, 0);
+    }
 
     return 0;
 }
@@ -340,11 +345,24 @@ void ArCleanup(void)
     }
     
     if (audioBuffer != NULL) {
-        SDL_free(audioBuffer);
+        free(audioBuffer);
         audioBuffer = NULL;
     }
     
-    SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    if (audioPlayerNode != nil) {
+        [audioPlayerNode stop];
+        audioPlayerNode = nil;
+    }
+    if (audioEngine != nil) {
+        [audioEngine stop];
+        audioEngine = nil;
+    }
+    audioFormat = nil;
+
+    if (sdlAudioSubsystemInitialized) {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        sdlAudioSubsystemInitialized = false;
+    }
 }
 
 + (void)setVolume:(float)linearVolume{
@@ -364,6 +382,16 @@ void ArCleanup(void)
 
 void AudioEngineInit(int sampleRate, int channelCount) {
     
+    if (audioPlayerNode != nil) {
+        [audioPlayerNode stop];
+        audioPlayerNode = nil;
+    }
+    if (audioEngine != nil) {
+        [audioEngine stop];
+        audioEngine = nil;
+    }
+    audioFormat = nil;
+
     audioEngine = [[AVAudioEngine alloc] init];
     audioPlayerNode = [[AVAudioPlayerNode alloc] init];
     
@@ -572,11 +600,15 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     switch (type) {
         case AVAudioSessionInterruptionTypeBegan:
             audioSessionInterrupted = true;
-            [audioPlayerNode stop];
-            [audioEngine stop];
+            if (useSystemAudioEngine) {
+                [audioPlayerNode stop];
+                [audioEngine stop];
+            }
             break;
         case AVAudioSessionInterruptionTypeEnded:
-            AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+            if (useSystemAudioEngine) {
+                AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+            }
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 audioSessionInterrupted = false;
             });

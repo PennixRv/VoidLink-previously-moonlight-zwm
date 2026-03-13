@@ -18,7 +18,7 @@ class ThemeManager: NSObject {
     private static var _userInterfaceStyle: UIUserInterfaceStyle = .unspecified
 
     @objc class func setPublicUIStyle() -> UIColor {
-        if #available(iOS 13.0, *) {
+        if #available(iOS 13.0, tvOS 13.0, *) {
             let traitCollection = UIScreen.main.traitCollection
             if _privateUserInterfaceStyle == .unspecified {
                 _userInterfaceStyle = traitCollection.userInterfaceStyle
@@ -70,7 +70,7 @@ class ThemeManager: NSObject {
                 alpha: 1
             )
             #else
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.secondarySystemBackground.resolvedColor(with: darkTraits)
             } else {
@@ -106,7 +106,7 @@ class ThemeManager: NSObject {
                 alpha: 1
             )
             #else
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.systemGroupedBackground.resolvedColor(with: darkTraits)
             } else {
@@ -153,7 +153,7 @@ class ThemeManager: NSObject {
                 alpha: 1
             )
             #else
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 // return UIColor.secondarySystemBackground
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.secondarySystemGroupedBackground.resolvedColor(with: darkTraits)
@@ -174,7 +174,7 @@ class ThemeManager: NSObject {
 
         switch userInterfaceStyle() {
         case .light:
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let lightTraits = UITraitCollection(userInterfaceStyle: .light)
                 return UIColor.separator.resolvedColor(with: lightTraits)
             } else {
@@ -186,7 +186,7 @@ class ThemeManager: NSObject {
                 )
             }
         default:
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.separator.resolvedColor(with: darkTraits)
             } else {return UIColor(white: 0.28, alpha: 1)}
@@ -220,14 +220,14 @@ class ThemeManager: NSObject {
 
         switch userInterfaceStyle() {
         case .light:
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let traits = UITraitCollection(userInterfaceStyle: .light)
                 return UIColor.label.resolvedColor(with: traits)
             } else {
                 return UIColor.black
             }
         default:
-            if #available(iOS 13.0, *) {
+            if #available(iOS 13.0, tvOS 13.0, *) {
                 let traits = UITraitCollection(userInterfaceStyle: .dark)
                 return UIColor.label.resolvedColor(with: traits)
             } else {

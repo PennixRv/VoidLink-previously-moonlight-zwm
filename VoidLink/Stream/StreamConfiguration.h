@@ -19,6 +19,12 @@
 @property NSString* appName;
 @property NSString* rtspSessionUrl;
 @property int serverCodecModeSupport;
+// For clarity/debugging: the values originally requested by user settings/presets before we apply
+// host-specific compatibility clamps (e.g. >60 FPS is Sunshine-only).
+@property int requestedFrameRate;
+@property int requestedBitRate;
+// Host type hint populated from serverinfo/state (true for GFE/GameStream). Sunshine is false.
+@property BOOL isNvidiaServerSoftware;
 @property BOOL enableYUV444;
 @property BOOL enablePIP;
 @property BOOL fullColorRange;

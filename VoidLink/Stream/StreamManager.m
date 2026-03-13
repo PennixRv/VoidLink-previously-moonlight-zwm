@@ -231,14 +231,29 @@
         nativeSize = CGSizeMake(screen.bounds.size.width * screen.scale, screen.bounds.size.height * screen.scale);
     }
 
+    NSString* hostType = _config.isNvidiaServerSoftware ? @"GFE/GameStream" : @"Sunshine";
+    NSString* fpsSuffix = (_config.requestedFrameRate > 0 && _config.requestedFrameRate != _config.frameRate)
+        ? [NSString stringWithFormat:@" (requested %d)", _config.requestedFrameRate]
+        : @"";
+    NSString* bitrateSuffix = (_config.requestedBitRate > 0 && _config.requestedBitRate != _config.bitRate)
+        ? [NSString stringWithFormat:@" (requested %d)", _config.requestedBitRate]
+        : @"";
+    float configuredMbps = _config.bitRate / 1000.0f;
+
     if (nativeSize.width > 0 && nativeSize.height > 0) {
-        outputInfo = [LocalizationHelper localizedStringForKey:@"Output: %.0fx%.0f @ %ld Hz (stream target: %dx%d@%d)\n",
-                      nativeSize.width, nativeSize.height, (long)maxHz,
-                      _config.width, _config.height, _config.frameRate];
+        outputInfo = [LocalizationHelper localizedStringForKey:
+                      @"Output: %.0fx%.0f @ %ld Hz (host: %@)\n"
+                      @"Stream: %dx%d@%d%@, bitrate: %.1f Mbps%@\n",
+                      nativeSize.width, nativeSize.height, (long)maxHz, hostType,
+                      _config.width, _config.height, _config.frameRate, fpsSuffix,
+                      configuredMbps, bitrateSuffix];
     } else {
-        outputInfo = [LocalizationHelper localizedStringForKey:@"Output: %ld Hz (stream target: %dx%d@%d)\n",
-                      (long)maxHz,
-                      _config.width, _config.height, _config.frameRate];
+        outputInfo = [LocalizationHelper localizedStringForKey:
+                      @"Output: %ld Hz (host: %@)\n"
+                      @"Stream: %dx%d@%d%@, bitrate: %.1f Mbps%@\n",
+                      (long)maxHz, hostType,
+                      _config.width, _config.height, _config.frameRate, fpsSuffix,
+                      configuredMbps, bitrateSuffix];
     }
 #endif
 

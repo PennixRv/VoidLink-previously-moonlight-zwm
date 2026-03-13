@@ -477,7 +477,7 @@
         self.imguiView = nil;
     }
     self.imguiView = [[ImGuiRenderer alloc] initWithFrame:self.view.bounds
-                                                streamFps:[_settings.framerate intValue]
+                                                streamFps:self.streamConfig.frameRate
                                              enableGraphs:_settings.enableGraphs
                                              graphOpacity:[_settings.graphOpacity intValue]];
     self.imguiView.mtkView.userInteractionEnabled = NO;
@@ -514,7 +514,7 @@
     TouchPadGestureHandler.ctrlDownForPinch = _settings.ctrlDownForPinch;
     TouchPadGestureHandler.scrollSensitivity = _settings.scrollSensitivity.floatValue;
     TouchPadGestureHandler.pinchSensitivity = _settings.pinchSensitivity.floatValue;
-    TouchPadGestureHandler.displayLinkRate = _settings.framerate.intValue;
+    TouchPadGestureHandler.displayLinkRate = self.streamConfig.frameRate;
 #endif
 
 #if TARGET_OS_TV
@@ -961,7 +961,7 @@
         // Metal view for video
         Log(LOG_I, @"StreamFrameViewController creating MetalViewController");
         self.metalViewController = [[MetalViewController alloc] initWithFrame:self.view.bounds
-                                                                    framerate:[self->_settings.framerate floatValue]
+                                                                    framerate:(float)self.streamConfig.frameRate
                                                                     settings:self->_settings
                                                                metricsHandler:self.imguiView.metricsHandler];
         self.metalViewController.view.userInteractionEnabled = NO;
@@ -1787,9 +1787,9 @@
                 dynamicRange = 0; // SDR
             }
             
-            AVDisplayCriteria* displayCriteria = [[AVDisplayCriteria alloc] initWithRefreshRate:[_settings.framerate floatValue]
-                                                                              videoDynamicRange:dynamicRange];
-            displayManager.preferredDisplayCriteria = displayCriteria;
+AVDisplayCriteria* displayCriteria = [[AVDisplayCriteria alloc] initWithRefreshRate:(float)self.streamConfig.frameRate
+                                                                  videoDynamicRange:dynamicRange];
+displayManager.preferredDisplayCriteria = displayCriteria;
         }
         else {
             // Switch back to the default display mode

@@ -317,7 +317,7 @@
 		9827E7A7251436EA00F25707 /* HapticContext.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HapticContext.h; sourceTree = "<group>"; };
 		9832D1341BBCD5C50036EF48 /* TemporaryApp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TemporaryApp.h; path = Database/TemporaryApp.h; sourceTree = "<group>"; };
 		9832D1351BBCD5C50036EF48 /* TemporaryApp.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = TemporaryApp.m; path = Database/TemporaryApp.m; sourceTree = "<group>"; };
-		9865DC3B2132922E0005B9B9 /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS11.4.sdk/System/Library/Frameworks/GameController.framework; sourceTree = DEVELOPER_DIR; };
+		9865DC3B2132922E0005B9B9 /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = System/Library/Frameworks/GameController.framework; sourceTree = SDKROOT; };
 		98882A032AF60F5300C5A11C /* libavcodec.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavcodec.a; path = libs/FFmpeg/lib/iOS/libavcodec.a; sourceTree = "<group>"; };
 		98882A042AF60F5300C5A11C /* libavutil.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavutil.a; path = libs/FFmpeg/lib/iOS/libavutil.a; sourceTree = "<group>"; };
 		98882A052AF60F5300C5A11C /* libavformat.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavformat.a; path = libs/FFmpeg/lib/iOS/libavformat.a; sourceTree = "<group>"; };
@@ -331,7 +331,7 @@
 		9897B6A0221260EF00966419 /* VoidController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = VoidController.m; sourceTree = "<group>"; };
 		9897B6A32212610800966419 /* VoidController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VoidController.h; sourceTree = "<group>"; };
 		98AB2E7F1CAD46830089BB98 /* moonlight-common.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = "moonlight-common.xcodeproj"; path = "moonlight-common/moonlight-common.xcodeproj"; sourceTree = "<group>"; };
-		98B9CE6C27B2144B00B473C4 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS15.2.sdk/System/Library/Frameworks/AVKit.framework; sourceTree = DEVELOPER_DIR; };
+		98B9CE6C27B2144B00B473C4 /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 		98D5856B1C0EA79600F6CC00 /* TemporaryHost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TemporaryHost.h; path = Database/TemporaryHost.h; sourceTree = "<group>"; };
 		98D5856C1C0EA79600F6CC00 /* TemporaryHost.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = TemporaryHost.m; path = Database/TemporaryHost.m; sourceTree = "<group>"; };
 		98D5856E1C0ED0E800F6CC00 /* TemporarySettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TemporarySettings.h; path = Database/TemporarySettings.h; sourceTree = "<group>"; };
@@ -344,8 +344,8 @@
 		FB1A67612132419A00507771 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1A67632132419A00507771 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FB1A67642132419A00507771 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		FB1A67E421324A1F00507771 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS11.4.sdk/System/Library/Frameworks/CoreData.framework; sourceTree = DEVELOPER_DIR; };
-		FB1A67E921324DF300507771 /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS11.4.sdk/usr/lib/libxml2.tbd; sourceTree = DEVELOPER_DIR; };
+		FB1A67E421324A1F00507771 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		FB1A67E921324DF300507771 /* libxml2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libxml2.tbd; path = usr/lib/libxml2.tbd; sourceTree = SDKROOT; };
 			FB1D59981BBCCD7E00F482CA /* AppCollectionView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppCollectionView.h; sourceTree = "<group>"; };
 			FB1D59991BBCCD7E00F482CA /* AppCollectionView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppCollectionView.m; sourceTree = "<group>"; };
 			FB290CEE19B2C406004C83CF /* VoidLink.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoidLink.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1515,7 +1515,7 @@
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"$(PROJECT_DIR)/moonlight-common/moonlight-common-c/src",
 					"$(SDKROOT)/usr/include/libxml2/**",
 					"$(PROJECT_DIR)/libs/**",
@@ -1581,7 +1581,7 @@
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"$(PROJECT_DIR)/moonlight-common/moonlight-common-c/src",
 					"$(SDKROOT)/usr/include/libxml2/**",
 					"$(PROJECT_DIR)/libs/**",
@@ -1648,7 +1648,7 @@
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"$(PROJECT_DIR)/moonlight-common/moonlight-common-c/src",
 					"$(SDKROOT)/usr/include/libxml2/**",
 					"$(PROJECT_DIR)/libs/**",
@@ -1714,7 +1714,7 @@
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"$(PROJECT_DIR)/moonlight-common/moonlight-common-c/src",
 					"$(SDKROOT)/usr/include/libxml2/**",
 					"$(PROJECT_DIR)/libs/**",

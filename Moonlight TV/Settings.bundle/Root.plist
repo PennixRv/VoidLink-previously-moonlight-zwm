@@ -11,6 +11,8 @@
 				<string>PSGroupSpecifier</string>
 				<key>Title</key>
 				<string>Basic Configuration</string>
+				<key>FooterText</key>
+				<string>2K120 requires Sunshine. On GFE/GameStream, &gt;60 FPS and &gt;100 Mbps will fall back to 60 FPS / 100 Mbps.</string>
 			</dict>
 			<dict>
 				<key>Type</key>
@@ -31,7 +33,7 @@
 				<array>
 					<string>Custom</string>
 					<string>4K60</string>
-					<string>2K120</string>
+					<string>2K120 (Sunshine)</string>
 				</array>
 			</dict>
 			<dict>
