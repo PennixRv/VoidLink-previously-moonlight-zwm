@@ -31,13 +31,15 @@ jobs:
           # before main() runs (appears as instant launch crash with no in-app logs).
           APP="./build/tvos/IPA/Payload/VoidLinkTV.app"
           mkdir -p "$APP/Frameworks"
-          OPENSSL_FW=$(find "$DERIVED_DATA" -path '*Debug-appletvos*PackageFrameworks/OpenSSL.framework' -type d | head -n 1)
+          # Xcode may stage the processed XCFramework output in BuildProductsPath (not PackageFrameworks).
+          OPENSSL_FW=$(find "$DERIVED_DATA" -path '*Debug-appletvos/OpenSSL.framework' -type d | head -n 1)
           if [ -z "$OPENSSL_FW" ]; then
-            OPENSSL_FW=$(find "$DERIVED_DATA" -path '*PackageFrameworks/OpenSSL.framework' -type d | head -n 1)
+            OPENSSL_FW=$(find "$DERIVED_DATA" -path '*OpenSSL.framework' -type d | head -n 1)
           fi
           if [ -z "$OPENSSL_FW" ]; then
             echo "error: OpenSSL.framework not found in DerivedData. This will cause a pre-main dyld crash." >&2
-            find "$DERIVED_DATA" -type d -name 'PackageFrameworks' -maxdepth 8 -print || true
+            find "$DERIVED_DATA" -type d -name 'OpenSSL.framework' -maxdepth 12 -print || true
+            find "$DERIVED_DATA" -type d -name 'BuildProductsPath' -maxdepth 12 -print || true
             exit 1
           fi
           cp -R "$OPENSSL_FW" "$APP/Frameworks/"
