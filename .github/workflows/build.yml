@@ -21,9 +21,28 @@ jobs:
 
       - name: Xcodebuild (tvOS)
         run: |
-          xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
+          DERIVED_DATA="$PWD/build/DerivedData"
+          xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' -derivedDataPath "$DERIVED_DATA" archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
           mkdir -p ./build/tvos/IPA/Payload
           cp -r ./build/tvos/VoidLinkTV.xcarchive/Products/Applications/VoidLinkTV.app ./build/tvos/IPA/Payload/VoidLinkTV.app
+
+          # SwiftPM dynamic frameworks (notably OpenSSL) are linked via @rpath, but may not be embedded
+          # into the .app when code signing is disabled. Without embedding, dyld can terminate the app
+          # before main() runs (appears as instant launch crash with no in-app logs).
+          APP="./build/tvos/IPA/Payload/VoidLinkTV.app"
+          mkdir -p "$APP/Frameworks"
+          OPENSSL_FW=$(find "$DERIVED_DATA" -path '*Debug-appletvos*PackageFrameworks/OpenSSL.framework' -type d | head -n 1)
+          if [ -z "$OPENSSL_FW" ]; then
+            OPENSSL_FW=$(find "$DERIVED_DATA" -path '*PackageFrameworks/OpenSSL.framework' -type d | head -n 1)
+          fi
+          if [ -z "$OPENSSL_FW" ]; then
+            echo "error: OpenSSL.framework not found in DerivedData. This will cause a pre-main dyld crash." >&2
+            find "$DERIVED_DATA" -type d -name 'PackageFrameworks' -maxdepth 8 -print || true
+            exit 1
+          fi
+          cp -R "$OPENSSL_FW" "$APP/Frameworks/"
+          test -f "$APP/Frameworks/OpenSSL.framework/OpenSSL"
+
           python3 ./BuildScripts/weaklink_opengles.py ./build/tvos/IPA/Payload/VoidLinkTV.app/VoidLinkTV
           cd ./build/tvos/IPA && zip -r ../VoidLink-tvOS.ipa ./Payload && cd ../..
 
