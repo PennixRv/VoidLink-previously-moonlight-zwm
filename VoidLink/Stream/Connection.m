@@ -16,8 +16,10 @@
 
 #import <VideoToolbox/VideoToolbox.h>
 
+#if !TARGET_OS_TV
 #define SDL_MAIN_HANDLED
 #import <SDL.h>
+#endif
 
 #include "Limelight.h"
 #include "opus_multistream.h"
@@ -42,18 +44,20 @@ static int lastFrameNumber;
 static int activeVideoFormat;
 static video_stats_t currentVideoStats;
 static video_stats_t lastVideoStats;
-static NSLock* videoStatsLock;
+	static NSLock* videoStatsLock;
 
-static SDL_AudioDeviceID audioDevice;
-static OPUS_MULTISTREAM_CONFIGURATION audioConfig;
-static void* audioBuffer;
-static float volume = 1.0;
-static int audioFrameSize;
-static bool sdlAudioSubsystemInitialized;
+#if !TARGET_OS_TV
+	static SDL_AudioDeviceID audioDevice;
+	static bool sdlAudioSubsystemInitialized;
+#endif
+	static OPUS_MULTISTREAM_CONFIGURATION audioConfig;
+	static void* audioBuffer;
+	static float volume = 1.0;
+	static int audioFrameSize;
 
-static bool useSystemAudioEngine;
-static bool audioSessionInterrupted;
-static AVAudioEngine *audioEngine;
+	static bool useSystemAudioEngine;
+	static bool audioSessionInterrupted;
+	static AVAudioEngine *audioEngine;
 static AVAudioPlayerNode *audioPlayerNode;
 static AVAudioPCMBuffer *pcmBuffer;
 static AVAudioFormat *audioFormat;
@@ -295,22 +299,28 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
                    error:nil];
     if(tempSettings.redirectMic) if(@available(iOS 13.0, tvOS 13.0, *)) [session setAllowHapticsAndSystemSoundsDuringRecording:YES error:nil];
 #endif
-    [session setActive:YES error:nil];
-    audioSessionInterrupted = false;
+	    [session setActive:YES error:nil];
+	    audioSessionInterrupted = false;
 
-    // Choose exactly one output pipeline.
-    // Stable-first: stereo uses the system audio engine; multichannel uses SDL output.
-    if (useSystemAudioEngine) {
-        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
-    } else {
-        SDL_AudioSpec want, have;
+	#if TARGET_OS_TV
+	    // tvOS: avoid SDL entirely (SDL pulls in legacy OpenGLES symbols which can dyld-crash on newer tvOS).
+	    useSystemAudioEngine = true;
+	#endif
 
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-            Log(LOG_E, @"Failed to initialize audio subsystem: %s\n", SDL_GetError());
-            ArCleanup();
-            return -1;
-        }
-        sdlAudioSubsystemInitialized = true;
+	    // Choose exactly one output pipeline.
+	    // Stable-first: stereo uses the system audio engine; multichannel uses SDL output.
+	    if (useSystemAudioEngine) {
+	        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+	    } else {
+#if !TARGET_OS_TV
+	        SDL_AudioSpec want, have;
+
+	        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+	            Log(LOG_E, @"Failed to initialize audio subsystem: %s\n", SDL_GetError());
+	            ArCleanup();
+	            return -1;
+	        }
+	        sdlAudioSubsystemInitialized = true;
 
         SDL_zero(want);
         want.freq = opusConfig->sampleRate;
@@ -325,29 +335,36 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
             return -1;
         }
 
-        // Start playback
-        SDL_PauseAudioDevice(audioDevice, 0);
-    }
+	        // Start playback
+	        SDL_PauseAudioDevice(audioDevice, 0);
+#else
+	        // tvOS should never get here because we force the system audio engine above.
+	        // Keep a defensive fallback to preserve behavior if that assumption changes.
+	        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+#endif
+	    }
 
-    return 0;
-}
+	    return 0;
+	}
 
 void ArCleanup(void)
 {
-    if (opusDecoder != NULL) {
-        opus_multistream_decoder_destroy(opusDecoder);
-        opusDecoder = NULL;
-    }
-    
-    if (audioDevice != 0) {
-        SDL_CloseAudioDevice(audioDevice);
-        audioDevice = 0;
-    }
-    
-    if (audioBuffer != NULL) {
-        free(audioBuffer);
-        audioBuffer = NULL;
-    }
+	    if (opusDecoder != NULL) {
+	        opus_multistream_decoder_destroy(opusDecoder);
+	        opusDecoder = NULL;
+	    }
+	    
+#if !TARGET_OS_TV
+	    if (audioDevice != 0) {
+	        SDL_CloseAudioDevice(audioDevice);
+	        audioDevice = 0;
+	    }
+#endif
+	    
+	    if (audioBuffer != NULL) {
+	        free(audioBuffer);
+	        audioBuffer = NULL;
+	    }
     
     if (audioPlayerNode != nil) {
         [audioPlayerNode stop];
@@ -356,14 +373,16 @@ void ArCleanup(void)
     if (audioEngine != nil) {
         [audioEngine stop];
         audioEngine = nil;
-    }
-    audioFormat = nil;
+	    }
+	    audioFormat = nil;
 
-    if (sdlAudioSubsystemInitialized) {
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        sdlAudioSubsystemInitialized = false;
-    }
-}
+#if !TARGET_OS_TV
+	    if (sdlAudioSubsystemInitialized) {
+	        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+	        sdlAudioSubsystemInitialized = false;
+	    }
+#endif
+	}
 
 + (void)setVolume:(float)linearVolume{
     if (linearVolume <= 0.0f) linearVolume = 0.0f;
@@ -468,11 +487,11 @@ void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
         
         float* fbuf = (float*)audioBuffer;
         
-        if(useSystemAudioEngine){
-            // 创建 AVAudioPCMBuffer
-            AVAudioFrameCount frameCount = decodeLen;
-            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audioFormat frameCapacity:frameCount];
-            buffer.frameLength = frameCount;
+	        if(useSystemAudioEngine){
+	            // 创建 AVAudioPCMBuffer
+	            AVAudioFrameCount frameCount = decodeLen;
+	            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audioFormat frameCapacity:frameCount];
+	            buffer.frameLength = frameCount;
             
             // 拷贝数据到 buffer
             for (int ch = 0; ch < audioConfig.channelCount; ch++) {
@@ -481,31 +500,33 @@ void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
                     dst[i] = fbuf[i * audioConfig.channelCount + ch] * volume; // 非交错数据
                 }
             }
-            // 播放
-            if(!audioSessionInterrupted) [audioPlayerNode scheduleBuffer:buffer completionHandler:nil];
-        }
-        
-        else{
-            if(volume != 1.0){
-                int totalSamples = decodeLen * audioConfig.channelCount;
-                for (int i = 0; i < totalSamples; i++) {
-                    fbuf[i] *= volume;
-                }
+	            // 播放
+	            if(!audioSessionInterrupted) [audioPlayerNode scheduleBuffer:buffer completionHandler:nil];
+	        }
+
+#if !TARGET_OS_TV
+	        else{
+	            if(volume != 1.0){
+	                int totalSamples = decodeLen * audioConfig.channelCount;
+	                for (int i = 0; i < totalSamples; i++) {
+	                    fbuf[i] *= volume;
+	                }
             }
             
             while (SDL_GetQueuedAudioSize(audioDevice) / audioFrameSize > 10) {
                 [NSThread sleepForTimeInterval:0.001f];
             }
             
-            if (SDL_QueueAudio(audioDevice,
-                               audioBuffer,
-                               sizeof(float) * decodeLen * audioConfig.channelCount) < 0) {
-                Log(LOG_E, @"Failed to queue audio sample: %s\n", SDL_GetError());
-            }
-        }
-        
-    }
-}
+	            if (SDL_QueueAudio(audioDevice,
+	                               audioBuffer,
+	                               sizeof(float) * decodeLen * audioConfig.channelCount) < 0) {
+	                Log(LOG_E, @"Failed to queue audio sample: %s\n", SDL_GetError());
+	            }
+	        }
+#endif
+	        
+	    }
+	}
 
 void ClStageStarting(int stage)
 {

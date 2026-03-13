@@ -40,6 +40,26 @@ jobs:
 
           python3 ./BuildScripts/weaklink_opengles.py "$APP/VoidLinkTV"
 
+          # Hard gate: ensure nothing in the bundle references legacy OpenGL ES symbols.
+          # Newer tvOS builds can remove these symbols from system frameworks, causing dyld to
+          # terminate the app before main() runs.
+          FOUND_GL=0
+          while IFS= read -r -d '' F; do
+            if file "$F" | grep -q "Mach-O"; then
+              if nm -m "$F" 2>/dev/null | grep -nE "external _gl[A-Za-z0-9_]+" >/dev/null; then
+                echo "Forbidden OpenGL symbol reference detected in: $F"
+                nm -m "$F" 2>/dev/null | grep -nE "external _gl[A-Za-z0-9_]+" | head -n 60 || true
+                FOUND_GL=1
+              fi
+              if nm -m "$F" 2>/dev/null | grep -nE "EAGLContext" >/dev/null; then
+                echo "Forbidden EAGLContext reference detected in: $F"
+                nm -m "$F" 2>/dev/null | grep -nE "EAGLContext" | head -n 40 || true
+                FOUND_GL=1
+              fi
+            fi
+          done < <(find "$APP" -type f -perm -111 -print0)
+          test "$FOUND_GL" -eq 0
+
           # Hard gate: ensure nothing in the bundle strongly links forbidden legacy graphics/audio frameworks.
           FORBIDDEN_REGEX="OpenGLES\\.framework|GLKit\\.framework|OpenAL\\.framework"
           FOUND=0

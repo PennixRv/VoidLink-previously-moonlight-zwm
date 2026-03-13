@@ -10,9 +10,6 @@
 #import "AppDelegate.h"
 #import "Logger.h"
 
-#define SDL_MAIN_HANDLED
-#import <SDL.h>
-
 static NSString* const kVoidLinkTVLaunchInProgressKey = @"VoidLinkTVLaunchInProgress";
 static NSString* const kVoidLinkTVLaunchTimestampKey = @"VoidLinkTVLaunchTimestamp";
 static NSString* const kVoidLinkTVCrashCountKey = @"VoidLinkTVCrashCount";
@@ -77,7 +74,6 @@ static void VoidLinkUncaughtExceptionHandler(NSException* exception) {
 
 int main(int argc, char * argv[]) {
     @autoreleasepool {
-        SDL_SetMainReady();
         LoggerInitFileLogging();
         NSSetUncaughtExceptionHandler(&VoidLinkUncaughtExceptionHandler);
         VoidLinkTVHandleLaunchCrashLoopIfNeeded();
