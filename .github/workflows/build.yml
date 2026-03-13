@@ -24,6 +24,7 @@ jobs:
           xcodebuild -verbose -project VoidLink.xcodeproj -scheme VoidLinkTV -sdk appletvos -configuration Debug -destination 'generic/platform=tvOS' archive -archivePath "$PWD/build/tvos/VoidLinkTV.xcarchive" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
           mkdir -p ./build/tvos/IPA/Payload
           cp -r ./build/tvos/VoidLinkTV.xcarchive/Products/Applications/VoidLinkTV.app ./build/tvos/IPA/Payload/VoidLinkTV.app
+          python3 ./BuildScripts/weaklink_opengles.py ./build/tvos/IPA/Payload/VoidLinkTV.app/VoidLinkTV
           cd ./build/tvos/IPA && zip -r ../VoidLink-tvOS.ipa ./Payload && cd ../..
 
       - name: Upload tvOS IPA Artifact
