@@ -587,12 +587,20 @@ class PressureCurveViewController: UIViewController {
         
         var navItem = UINavigationItem()
         
+        #if os(tvOS)
+        // tvOS: UINavigationBarAppearance can throw at runtime ("New Bar Appearance API is not supported...").
+        // Pressure curve UI isn't used on tvOS, but keep this defensive to avoid crash if it becomes reachable.
+        navBar.setBackgroundImage(UIImage(), for: .default)
+        navBar.shadowImage = UIImage() // 去掉底部线
+        navBar.isTranslucent = true
+        navBar.backgroundColor = .clear
+        #else
         if #available(iOS 13.0, *) {
             let appearance = UINavigationBarAppearance()
             appearance.configureWithTransparentBackground() // 透明背景
             appearance.shadowColor = nil // 去掉底部细线
             appearance.backgroundColor = .clear // 可以额外设置完全透明
-            
+
             navBar.standardAppearance = appearance
             navBar.scrollEdgeAppearance = appearance
         } else {
@@ -601,6 +609,7 @@ class PressureCurveViewController: UIViewController {
             navBar.isTranslucent = true
             navBar.backgroundColor = .clear
         }
+        #endif
         
         
         // 2. 添加约束 (顶部，左右)

@@ -153,6 +153,14 @@ static NSMutableSet* hostList;
 
 - (void)updateTitle {
 
+#if TARGET_OS_TV
+    // tvOS: UINavigationBarAppearance can throw at runtime ("New Bar Appearance API is not supported...").
+    // Use legacy title customization.
+    self.navigationController.navigationBar.titleTextAttributes = @{
+        NSFontAttributeName: [UIFont systemFontOfSize:20 weight:UIFontWeightMedium],
+        NSForegroundColorAttributeName: [ThemeManager textColor]
+    };
+#else
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance* appearance = navBarAppearanceStandard;
         NSDictionary* titleTextAttributes = @{
@@ -162,6 +170,7 @@ static NSMutableSet* hostList;
         appearance.titleTextAttributes = titleTextAttributes;
         navBarAppearanceStandard = appearance;
     }
+#endif
 
     if (_selectedHost != nil) {
         self.title = _selectedHost.name;
@@ -171,8 +180,8 @@ static NSMutableSet* hostList;
         self.title = [LocalizationHelper localizedStringForKey: @"Searching for PCs on your network..."] ;
     }
     else {
+#if !TARGET_OS_TV
         if (@available(iOS 13.0, *)) {
-
             UINavigationBarAppearance* appearance = navBarAppearanceStandard;
             NSDictionary* titleTextAttributes = @{
                 NSFontAttributeName: [UIFont systemFontOfSize:20 weight:UIFontWeightMedium],
@@ -181,6 +190,7 @@ static NSMutableSet* hostList;
             appearance.titleTextAttributes = titleTextAttributes;
             navBarAppearanceStandard = appearance;
         }
+#endif
         /*
         self.navigationController.navigationBar.titleTextAttributes = @{
             NSFontAttributeName: [UIFont systemFontOfSize:24 weight:UIFontWeightSemibold],
@@ -1561,6 +1571,18 @@ static NSMutableSet* hostList;
 }
 
 - (void)applyNavBarAppearance{
+#if TARGET_OS_TV
+    // tvOS: accessing UINavigationBarAppearance-backed properties can crash at runtime:
+    // "New Bar Appearance API is not supported on this version of tvOS. Use legacy customization."
+    UINavigationBar *bar = self.navigationController.navigationBar;
+    bar.backgroundColor = [UIColor clearColor];
+    bar.barTintColor = [ThemeManager hostViewBackgroundColor];
+    bar.tintColor = [ThemeManager appPrimaryColor];
+    bar.titleTextAttributes = @{
+        NSFontAttributeName: [UIFont systemFontOfSize:20 weight:UIFontWeightMedium],
+        NSForegroundColorAttributeName: [ThemeManager textColor],
+    };
+#else
     if (@available(iOS 13.0, *)) {
         self.navigationController.navigationBar.standardAppearance.backgroundColor = [UIColor clearColor]; // old ios depend on this, do not remove
         self.navigationController.navigationBar.standardAppearance = navBarAppearanceStandard;
@@ -1571,9 +1593,12 @@ static NSMutableSet* hostList;
         self.navigationController.navigationBar.barTintColor = [UIColor clearColor]; // ios 14 depend on this, do not remove
         self.navigationController.navigationBar.barTintColor = [ThemeManager hostViewBackgroundColor]; // ios 14 depend on this, do not remove
     }
+#endif
 }
 
 - (void)setupNavBar{
+    // NOTE: tvOS doesn't reliably support UINavigationBarAppearance at runtime.
+#if !TARGET_OS_TV
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance* appearance = [[UINavigationBarAppearance alloc] init];
         [appearance configureWithOpaqueBackground];
@@ -1587,6 +1612,7 @@ static NSMutableSet* hostList;
         appearance.backgroundImage = nil;
         navBarAppearanceStandard = appearance;
     }
+#endif
     [self applyNavBarAppearance];
 
     self->_addHostButton = [self createAddHostButton];
@@ -1650,6 +1676,7 @@ static NSMutableSet* hostList;
     self.hostCollectionVC.view.backgroundColor = [ThemeManager hostViewBackgroundColor];
     self.collectionView.backgroundColor = [ThemeManager hostViewBackgroundColor];
 
+#if !TARGET_OS_TV
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance* appearance = navBarAppearanceStandard;
         appearance.backgroundColor = [ThemeManager hostViewBackgroundColor];
@@ -1659,6 +1686,7 @@ static NSMutableSet* hostList;
         appearance.titleTextAttributes = titleTextAttributes;
         navBarAppearanceStandard = appearance;
     }
+#endif
     
     _settingsButton.tintColor = [ThemeManager appPrimaryColor];
     _upButton.tintColor = [ThemeManager appPrimaryColor];

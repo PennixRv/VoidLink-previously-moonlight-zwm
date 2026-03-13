@@ -852,6 +852,14 @@ const int FrontViewPositionNone = 0xff;
     _contentView.safeAreaPadding.backgroundColor = [ThemeManager menuBackgroundColor];
     _separatorLine.backgroundColor = [ThemeManager separatorColor];
     
+#if TARGET_OS_TV
+    // tvOS: UINavigationBarAppearance can throw at runtime ("New Bar Appearance API is not supported...").
+    // Use legacy customization if this controller is ever instantiated on tvOS.
+    _dockedNavBar.barTintColor = [ThemeManager menuBackgroundColor];
+    _dockedNavBar.titleTextAttributes = @{
+        NSForegroundColorAttributeName: [ThemeManager textColor]
+    };
+#else
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance *navBarAppearanceStandard = _dockedNavBar.standardAppearance;
         navBarAppearanceStandard.backgroundColor = [ThemeManager menuBackgroundColor];
@@ -863,6 +871,7 @@ const int FrontViewPositionNone = 0xff;
     } else {
         _dockedNavBar.barTintColor = [ThemeManager menuBackgroundColor];
     }
+#endif
 }
 
 - (void)viewDidLoad{
@@ -961,6 +970,11 @@ const int FrontViewPositionNone = 0xff;
     _dockedNavBar.translatesAutoresizingMaskIntoConstraints = NO;
     _dockedNavBar.userInteractionEnabled = YES;
     
+#if TARGET_OS_TV
+    // tvOS: avoid UINavigationBarAppearance usage (can crash at runtime).
+    _dockedNavBar.barTintColor = [ThemeManager menuBackgroundColor];
+    _dockedNavBar.shadowImage = [UIImage new]; // remove bottom line for navbar
+#else
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance *navBarAppearanceStandard = [[UINavigationBarAppearance alloc] init];
         [navBarAppearanceStandard configureWithOpaqueBackground]; // 不透明
@@ -978,6 +992,7 @@ const int FrontViewPositionNone = 0xff;
         _dockedNavBar.barTintColor = [ThemeManager menuBackgroundColor];
         _dockedNavBar.shadowImage = [UIImage new]; // remove bottom line for navbar
     }
+#endif
 
     
     // 创建导航项
