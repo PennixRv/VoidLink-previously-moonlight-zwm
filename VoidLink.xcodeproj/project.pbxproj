@@ -97,13 +97,14 @@
 		9897B6A1221260EF00966419 /* VoidController.m in Sources */ = {isa = PBXBuildFile; fileRef = 9897B6A0221260EF00966419 /* VoidController.m */; };
 		98CFB82F1CAD481B0048EF74 /* libmoonlight-common.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 98AB2E841CAD46840089BB98 /* libmoonlight-common.a */; };
 		98D5856D1C0EA79600F6CC00 /* TemporaryHost.m in Sources */ = {isa = PBXBuildFile; fileRef = 98D5856C1C0EA79600F6CC00 /* TemporaryHost.m */; };
-		98D585701C0ED0E800F6CC00 /* TemporarySettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 98D5856F1C0ED0E800F6CC00 /* TemporarySettings.m */; };
-		DC1F5A07206436B20037755F /* ConnectionHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1F5A06206436B20037755F /* ConnectionHelper.m */; };
-		F74BEF9C2C1A705600224667 /* OpenSSL in Frameworks */ = {isa = PBXBuildFile; productRef = F74BEF9B2C1A705600224667 /* OpenSSL */; };
-		FB1A674D2131E65900507771 /* KeyboardSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1A674C2131E65900507771 /* KeyboardSupport.m */; };
-		FB1D599A1BBCCD7E00F482CA /* AppCollectionView.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1D59991BBCCD7E00F482CA /* AppCollectionView.m */; };
-		FB290CF219B2C406004C83CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF119B2C406004C83CF /* Foundation.framework */; };
-		FB290CF419B2C406004C83CF /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF319B2C406004C83CF /* CoreGraphics.framework */; };
+			98D585701C0ED0E800F6CC00 /* TemporarySettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 98D5856F1C0ED0E800F6CC00 /* TemporarySettings.m */; };
+			DC1F5A07206436B20037755F /* ConnectionHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1F5A06206436B20037755F /* ConnectionHelper.m */; };
+			F74BEF9C2C1A705600224667 /* OpenSSL in Frameworks */ = {isa = PBXBuildFile; productRef = F74BEF9B2C1A705600224667 /* OpenSSL */; };
+			A0EAA90E2F1C0A1B2C3D4E14 /* OpenSSL in Embed Frameworks */ = {isa = PBXBuildFile; productRef = F74BEF9B2C1A705600224667 /* OpenSSL */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+			FB1A674D2131E65900507771 /* KeyboardSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1A674C2131E65900507771 /* KeyboardSupport.m */; };
+			FB1D599A1BBCCD7E00F482CA /* AppCollectionView.m in Sources */ = {isa = PBXBuildFile; fileRef = FB1D59991BBCCD7E00F482CA /* AppCollectionView.m */; };
+			FB290CF219B2C406004C83CF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF119B2C406004C83CF /* Foundation.framework */; };
+			FB290CF419B2C406004C83CF /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF319B2C406004C83CF /* CoreGraphics.framework */; };
 		FB290CF619B2C406004C83CF /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF519B2C406004C83CF /* UIKit.framework */; };
 		FB290CF819B2C406004C83CF /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB290CF719B2C406004C83CF /* CoreData.framework */; };
 		FB290CFE19B2C406004C83CF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB290CFC19B2C406004C83CF /* InfoPlist.strings */; };
@@ -467,11 +468,11 @@
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
-			A0EAA90E2F1C0A1B2C3D4E11 /* Frameworks TV */ = {
-				isa = PBXFrameworksBuildPhase;
-				buildActionMask = 2147483647;
-				files = (
-					9890CF6B203B7EE1006C4B06 /* libxml2.tbd in Frameworks */,
+				A0EAA90E2F1C0A1B2C3D4E11 /* Frameworks TV */ = {
+					isa = PBXFrameworksBuildPhase;
+					buildActionMask = 2147483647;
+					files = (
+						9890CF6B203B7EE1006C4B06 /* libxml2.tbd in Frameworks */,
 					A0EAA90E2F1C0A1B2C3D4E0B /* Collections in Frameworks */,
 					A0EAA90E2F1C0A1B2C3D4E05 /* libmoonlight-common-tv.a in Frameworks */,
 					A0EAA90E2F1C0A1B2C3D4E0A /* libopus.a in Frameworks */,
@@ -486,15 +487,29 @@
 					18780CC72F10D66000B90483 /* StoreKit.framework in Frameworks */,
 					FB290CF219B2C406004C83CF /* Foundation.framework in Frameworks */,
 					FB4679011A57048000377732 /* CoreFoundation.framework in Frameworks */,
-				);
-				runOnlyForDeploymentPostprocessing = 0;
-			};
-	/* End PBXFrameworksBuildPhase section */
+					);
+					runOnlyForDeploymentPostprocessing = 0;
+				};
+		/* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXGroup section */
-		84351B052C29ACAF00A77989 /* CustomOSC */ = {
-			isa = PBXGroup;
-			children = (
+	/* Begin PBXCopyFilesBuildPhase section */
+				A0EAA90E2F1C0A1B2C3D4E13 /* Embed Frameworks */ = {
+					isa = PBXCopyFilesBuildPhase;
+					buildActionMask = 2147483647;
+					dstPath = "";
+					dstSubfolderSpec = 10;
+					files = (
+						A0EAA90E2F1C0A1B2C3D4E14 /* OpenSSL in Embed Frameworks */,
+					);
+					name = "Embed Frameworks";
+					runOnlyForDeploymentPostprocessing = 0;
+				};
+	/* End PBXCopyFilesBuildPhase section */
+
+	/* Begin PBXGroup section */
+			84351B052C29ACAF00A77989 /* CustomOSC */ = {
+				isa = PBXGroup;
+				children = (
 				84351B0C2C29ACCB00A77989 /* LayoutOnScreenControls.h */,
 				84351B072C29ACCA00A77989 /* LayoutOnScreenControls.m */,
 				84351B062C29ACCA00A77989 /* OnScreenButtonState.h */,
@@ -1002,16 +1017,17 @@
 				productReference = FB290CEE19B2C406004C83CF /* VoidLink.app */;
 				productType = "com.apple.product-type.application";
 			};
-			A0EAA90E2F1C0A1B2C3D4E20 /* VoidLinkTV */ = {
-				isa = PBXNativeTarget;
-				buildConfigurationList = A0EAA90E2F1C0A1B2C3D4E32 /* Build configuration list for PBXNativeTarget "VoidLinkTV" */;
-				buildPhases = (
-					A0EAA90E2F1C0A1B2C3D4E10 /* Sources TV */,
-					A0EAA90E2F1C0A1B2C3D4E11 /* Frameworks TV */,
-					A0EAA90E2F1C0A1B2C3D4E12 /* Resources TV */,
-				);
-				buildRules = (
-				);
+				A0EAA90E2F1C0A1B2C3D4E20 /* VoidLinkTV */ = {
+					isa = PBXNativeTarget;
+					buildConfigurationList = A0EAA90E2F1C0A1B2C3D4E32 /* Build configuration list for PBXNativeTarget "VoidLinkTV" */;
+					buildPhases = (
+						A0EAA90E2F1C0A1B2C3D4E10 /* Sources TV */,
+						A0EAA90E2F1C0A1B2C3D4E11 /* Frameworks TV */,
+						A0EAA90E2F1C0A1B2C3D4E13 /* Embed Frameworks */,
+						A0EAA90E2F1C0A1B2C3D4E12 /* Resources TV */,
+					);
+					buildRules = (
+					);
 				dependencies = (
 					A0EAA90E2F1C0A1B2C3D4E21 /* PBXTargetDependency */,
 				);
@@ -1491,7 +1507,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = x;
+					CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FRL23UV4N9;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
@@ -1557,7 +1573,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = x;
+					CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FRL23UV4N9;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
@@ -1624,7 +1640,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = x;
+					CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FRL23UV4N9;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";
@@ -1690,7 +1706,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = x;
+					CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FRL23UV4N9;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "VoidLink/Limelight-Prefix.pch";

@@ -248,36 +248,87 @@ static NSData* p12 = nil;
 }
 
 + (NSData*)getKeyFromCertKeyPair:(CertKeyPair*)certKeyPair {
+    if (certKeyPair == NULL || certKeyPair->pkey == NULL) {
+        Log(LOG_E, @"Missing private key while exporting key pair");
+        return nil;
+    }
     BIO* bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        Log(LOG_E, @"BIO_new() failed while exporting private key");
+        return nil;
+    }
     
-    PEM_write_bio_PrivateKey_traditional(bio, certKeyPair->pkey, NULL, NULL, 0, NULL, NULL);
+    if (PEM_write_bio_PrivateKey_traditional(bio, certKeyPair->pkey, NULL, NULL, 0, NULL, NULL) != 1) {
+        Log(LOG_E, @"PEM_write_bio_PrivateKey_traditional() failed");
+        BIO_free(bio);
+        return nil;
+    }
     
     BUF_MEM* mem;
     BIO_get_mem_ptr(bio, &mem);
+    if (mem == NULL || mem->data == NULL || mem->length == 0) {
+        Log(LOG_E, @"Empty private key data while exporting key pair");
+        BIO_free(bio);
+        return nil;
+    }
     NSData* data = [NSData dataWithBytes:mem->data length:mem->length];
     BIO_free(bio);
     return data;
 }
 
 + (NSData*)getP12FromCertKeyPair:(CertKeyPair*)certKeyPair {
+    if (certKeyPair == NULL || certKeyPair->p12 == NULL) {
+        Log(LOG_E, @"Missing PKCS12 while exporting key pair");
+        return nil;
+    }
     BIO* bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        Log(LOG_E, @"BIO_new() failed while exporting PKCS12");
+        return nil;
+    }
     
-    i2d_PKCS12_bio(bio, certKeyPair->p12);
+    if (i2d_PKCS12_bio(bio, certKeyPair->p12) != 1) {
+        Log(LOG_E, @"i2d_PKCS12_bio() failed");
+        BIO_free(bio);
+        return nil;
+    }
     
     BUF_MEM* mem;
     BIO_get_mem_ptr(bio, &mem);
+    if (mem == NULL || mem->data == NULL || mem->length == 0) {
+        Log(LOG_E, @"Empty PKCS12 data while exporting key pair");
+        BIO_free(bio);
+        return nil;
+    }
     NSData* data = [NSData dataWithBytes:mem->data length:mem->length];
     BIO_free(bio);
     return data;
 }
 
 + (NSData*)getCertFromCertKeyPair:(CertKeyPair*)certKeyPair {
+    if (certKeyPair == NULL || certKeyPair->x509 == NULL) {
+        Log(LOG_E, @"Missing certificate while exporting key pair");
+        return nil;
+    }
     BIO* bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        Log(LOG_E, @"BIO_new() failed while exporting certificate");
+        return nil;
+    }
     
-    PEM_write_bio_X509(bio, certKeyPair->x509);
+    if (PEM_write_bio_X509(bio, certKeyPair->x509) != 1) {
+        Log(LOG_E, @"PEM_write_bio_X509() failed");
+        BIO_free(bio);
+        return nil;
+    }
     
     BUF_MEM* mem;
     BIO_get_mem_ptr(bio, &mem);
+    if (mem == NULL || mem->data == NULL || mem->length == 0) {
+        Log(LOG_E, @"Empty certificate data while exporting key pair");
+        BIO_free(bio);
+        return nil;
+    }
     NSData* data = [NSData dataWithBytes:mem->data length:mem->length];
     BIO_free(bio);
     return data;
@@ -295,6 +346,15 @@ static NSData* p12 = nil;
             NSData* keyData = [CryptoManager getKeyFromCertKeyPair:&certKeyPair];
             
             freeCertKeyPair(certKeyPair);
+
+            if (certData == nil || p12Data == nil || keyData == nil) {
+                // Avoid a startup crash on tvOS where NSUserDefaults doesn't accept nil.
+                Log(LOG_E, @"Failed to generate/export crypto key pair (cert=%@ p12=%@ key=%@). Skipping persistence.",
+                    certData ? @"ok" : @"nil",
+                    p12Data ? @"ok" : @"nil",
+                    keyData ? @"ok" : @"nil");
+                return;
+            }
             
             [CryptoManager writeCryptoObject:@"client.crt" data:certData];
             [CryptoManager writeCryptoObject:@"client.p12" data:p12Data];

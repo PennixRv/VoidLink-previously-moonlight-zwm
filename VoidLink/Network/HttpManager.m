@@ -108,6 +108,15 @@
 - (void) executeRequestSynchronously:(HttpRequest*)request {
     // This is a special case to handle failure of HTTPS port fetching
     if (!request.request) {
+        // If we have a fallback request, try it instead of aborting the whole flow.
+        if (request.fallbackRequest) {
+            Log(LOG_W, @"Request had no URL. Attempting fallback request.");
+            request.request = request.fallbackRequest;
+            request.fallbackError = 0;
+            request.fallbackRequest = NULL;
+            [self executeRequestSynchronously:request];
+            return;
+        }
         if (request.response) {
             request.response.statusCode = EHOSTDOWN;
             request.response.statusMessage = @"Host is unreachable";
@@ -181,7 +190,16 @@
 }
 
 - (NSURLRequest*) createRequestFromString:(NSString*) urlString timeout:(int)timeout {
+    if (urlString == nil || urlString.length == 0) {
+        Log(LOG_E, @"Empty URL string for HTTP request");
+        return nil;
+    }
+
     NSURL* url = [[NSURL alloc] initWithString:urlString];
+    if (url == nil) {
+        Log(LOG_E, @"Invalid URL string for HTTP request: %@", urlString);
+        return nil;
+    }
     NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:url];
     [request setTimeoutInterval:timeout];
     return request;

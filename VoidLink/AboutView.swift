@@ -68,9 +68,17 @@ public struct AboutView: View {
                 .frame(maxWidth: 570) // ✅ 避免 Text 被拉得太宽无法换行
 
             // 链接按钮
-            if #available(iOS 14.0, *) {
-                Link(SwiftLocalizationHelper.localizedString(forKey: "Learn more & join us"), destination: URL(string: SwiftLocalizationHelper.localizedString(forKey: "supportLink"))!)
-                    .padding(.top, 10)
+            if #available(iOS 14.0, tvOS 14.0, *) {
+                let supportLink = SwiftLocalizationHelper.localizedString(forKey: "supportLink")
+                if let url = URL(string: supportLink) {
+                    Link(SwiftLocalizationHelper.localizedString(forKey: "Learn more & join us"), destination: url)
+                        .padding(.top, 10)
+                } else {
+                    // Avoid a hard crash on malformed/empty URL strings (common in sideload builds).
+                    Text(SwiftLocalizationHelper.localizedString(forKey: "Learn more & join us"))
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
+                }
                 Spacer()
                 // OK 按钮
                 Button(SwiftLocalizationHelper.localizedString(forKey: "OK")) {
@@ -120,4 +128,3 @@ public struct AboutView: View {
         .padding()
     }
 }
-

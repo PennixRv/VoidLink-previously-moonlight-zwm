@@ -26,23 +26,9 @@ jobs:
           mkdir -p ./build/tvos/IPA/Payload
           cp -r ./build/tvos/VoidLinkTV.xcarchive/Products/Applications/VoidLinkTV.app ./build/tvos/IPA/Payload/VoidLinkTV.app
 
-          # SwiftPM dynamic frameworks (notably OpenSSL) are linked via @rpath, but may not be embedded
-          # into the .app when code signing is disabled. Without embedding, dyld can terminate the app
-          # before main() runs (appears as instant launch crash with no in-app logs).
+          # Ensure dynamic SwiftPM frameworks are embedded via the Xcode project (Embed Frameworks build phase),
+          # otherwise dyld can terminate the app before main() runs.
           APP="./build/tvos/IPA/Payload/VoidLinkTV.app"
-          mkdir -p "$APP/Frameworks"
-          # Xcode may stage the processed XCFramework output in BuildProductsPath (not PackageFrameworks).
-          OPENSSL_FW=$(find "$DERIVED_DATA" -path '*Debug-appletvos/OpenSSL.framework' -type d | head -n 1)
-          if [ -z "$OPENSSL_FW" ]; then
-            OPENSSL_FW=$(find "$DERIVED_DATA" -path '*OpenSSL.framework' -type d | head -n 1)
-          fi
-          if [ -z "$OPENSSL_FW" ]; then
-            echo "error: OpenSSL.framework not found in DerivedData. This will cause a pre-main dyld crash." >&2
-            find "$DERIVED_DATA" -type d -name 'OpenSSL.framework' -maxdepth 12 -print || true
-            find "$DERIVED_DATA" -type d -name 'BuildProductsPath' -maxdepth 12 -print || true
-            exit 1
-          fi
-          cp -R "$OPENSSL_FW" "$APP/Frameworks/"
           test -f "$APP/Frameworks/OpenSSL.framework/OpenSSL"
 
           python3 ./BuildScripts/weaklink_opengles.py ./build/tvos/IPA/Payload/VoidLinkTV.app/VoidLinkTV
