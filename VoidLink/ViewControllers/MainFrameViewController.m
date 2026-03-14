@@ -91,6 +91,14 @@
     UITapGestureRecognizer* _debugLogsRecognizer;
 #endif
     UILongPressGestureRecognizer* _appCellLongPressRecognizer;
+
+    UIView* _tvosTopBar;
+    UIStackView* _tvosTopBarStack;
+    UIButton* _tvosSettingsButton;
+    UIButton* _tvosHelpButton;
+    UIButton* _tvosAddHostButton;
+    UIFocusGuide* _tvosHostsFocusGuide;
+    BOOL _tvosDidAutoFocusHostsThisAppearance;
 #endif
 }
 static NSMutableSet* hostList;
@@ -363,6 +371,8 @@ static NSMutableSet* hostList;
     _sortedAppList = nil;
 
 #if TARGET_OS_TV
+    _tvosDidAutoFocusHostsThisAppearance = NO;
+
     // Clear any previously displayed app tiles now that we're back on Hosts.
     [self.collectionView reloadData];
     [self.collectionView setContentOffset:CGPointZero animated:NO];
@@ -388,11 +398,19 @@ static NSMutableSet* hostList;
     if (self.hostCollectionVC.view.superview == self.collectionView) {
         [self.collectionView bringSubviewToFront:self.hostCollectionVC.view];
     }
+
+    [self tvosUpdateHostsTopBarVisibility];
 #else
     self.collectionView.hidden = YES;
 #endif
     [self updateTitle];
+#if TARGET_OS_TV
+    // tvOS: keep navigation bar empty to avoid focus traps.
+    self.navigationItem.leftBarButtonItem = nil;
+    self.navigationItem.rightBarButtonItems = nil;
+#else
     self.navigationItem.rightBarButtonItems = @[_helpButton, _addHostButton];
+#endif
 #if !TARGET_OS_TV
     // iOS-only: keep SWRevealViewController informed about which "page" we're on.
     self.revealViewController.mainFrameIsInHostView = true;
@@ -402,6 +420,9 @@ static NSMutableSet* hostList;
     // Force focus to move onto the hosts grid after toggling views.
     [self setNeedsFocusUpdate];
     [self updateFocusIfNeeded];
+
+    // If we already have hosts, prefer focusing the first host card immediately.
+    [self tvosRequestFocusToFirstHostIfPossible];
 #endif
 }
 
@@ -446,13 +467,20 @@ static NSMutableSet* hostList;
     if (_appCellLongPressRecognizer != nil) {
         _appCellLongPressRecognizer.enabled = YES;
     }
+
+    [self tvosUpdateHostsTopBarVisibility];
 #endif
     //self.view.backgroundColor = [ThemeManager appBackgroundColor];
 
     [self.collectionView setContentOffset:CGPointZero animated:NO];
     
     [self attachWaterMark];
+#if TARGET_OS_TV
+    self.navigationItem.leftBarButtonItem = nil;
+    self.navigationItem.rightBarButtonItems = nil;
+#else
     self.navigationItem.rightBarButtonItems = @[_upButton];
+#endif
 #if !TARGET_OS_TV
     self.revealViewController.mainFrameIsInHostView = false;
 #endif
@@ -1666,9 +1694,13 @@ static NSMutableSet* hostList;
     self->_helpButton = [self createHelpButton];
     //[self setupHostViewTitle];
 
-
-
+#if !TARGET_OS_TV
     self.navigationItem.rightBarButtonItems = @[_helpButton, _addHostButton]; // 顺序：右边靠右的是第一个
+#else
+    // tvOS: Avoid putting focusable items in the navigation bar. It can trap focus on launch.
+    self.navigationItem.leftBarButtonItem = nil;
+    self.navigationItem.rightBarButtonItems = nil;
+#endif
 
     // Set the side bar button action. When it's tapped, it'll show the sidebar.
 
@@ -1718,6 +1750,185 @@ static NSMutableSet* hostList;
     [_upButton setAction:@selector(switchToHostView)];
 }
 
+#if TARGET_OS_TV
+- (UIButton*)tvosMakeTopBarButtonWithSystemImageName:(NSString*)systemImageName
+                                              title:(NSString*)title
+                                             action:(SEL)action
+{
+    UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    button.backgroundColor = [[ThemeManager widgetBackgroundColor] colorWithAlphaComponent:0.85];
+    button.layer.cornerRadius = 16.0;
+    button.clipsToBounds = YES;
+    button.tintColor = [ThemeManager appPrimaryColor];
+    button.titleLabel.font = [UIFont systemFontOfSize:24 weight:UIFontWeightSemibold];
+    button.contentEdgeInsets = UIEdgeInsetsMake(10, 16, 10, 16);
+    button.semanticContentAttribute = UISemanticContentAttributeForceLeftToRight;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+
+    if (@available(iOS 13.0, *)) {
+        UIImageSymbolConfiguration* config =
+            [UIImageSymbolConfiguration configurationWithPointSize:26 weight:UIImageSymbolWeightSemibold];
+        UIImage* image = [UIImage systemImageNamed:systemImageName withConfiguration:config];
+        [button setImage:image forState:UIControlStateNormal];
+        button.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        if (title.length > 0) {
+            [button setTitle:[NSString stringWithFormat:@"  %@", title] forState:UIControlStateNormal];
+        } else {
+            [button setTitle:@"" forState:UIControlStateNormal];
+        }
+    } else {
+        [button setTitle:(title ?: @"") forState:UIControlStateNormal];
+    }
+
+    [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
+
+    // Fixed height for consistent focus geometry.
+    [NSLayoutConstraint activateConstraints:@[
+        [button.heightAnchor constraintEqualToConstant:56],
+    ]];
+
+    return button;
+}
+
+- (void)tvosInstallHostsTopBarIfNeeded
+{
+    if (_tvosTopBar != nil) {
+        return;
+    }
+
+    _tvosTopBar = [[UIView alloc] init];
+    _tvosTopBar.translatesAutoresizingMaskIntoConstraints = NO;
+    _tvosTopBar.backgroundColor = [UIColor clearColor];
+    _tvosTopBar.userInteractionEnabled = YES;
+    [self.view addSubview:_tvosTopBar];
+
+    _tvosTopBarStack = [[UIStackView alloc] init];
+    _tvosTopBarStack.translatesAutoresizingMaskIntoConstraints = NO;
+    _tvosTopBarStack.axis = UILayoutConstraintAxisHorizontal;
+    _tvosTopBarStack.alignment = UIStackViewAlignmentCenter;
+    _tvosTopBarStack.distribution = UIStackViewDistributionFill;
+    _tvosTopBarStack.spacing = 22;
+    [_tvosTopBar addSubview:_tvosTopBarStack];
+
+    // Buttons
+    _tvosSettingsButton = [self tvosMakeTopBarButtonWithSystemImageName:@"gearshape"
+                                                                  title:@""
+                                                                 action:@selector(openTvSettings:)];
+    _tvosHelpButton = [self tvosMakeTopBarButtonWithSystemImageName:@"questionmark.circle"
+                                                              title:@""
+                                                             action:@selector(helpButtonTapped)];
+    _tvosAddHostButton = [self tvosMakeTopBarButtonWithSystemImageName:@"plus"
+                                                                 title:[LocalizationHelper localizedStringForKey:@"Add Host"]
+                                                                action:@selector(addHostTapped)];
+
+    // Make icon-only buttons square.
+    [NSLayoutConstraint activateConstraints:@[
+        [_tvosSettingsButton.widthAnchor constraintEqualToConstant:56],
+        [_tvosHelpButton.widthAnchor constraintEqualToConstant:56],
+        [_tvosAddHostButton.widthAnchor constraintGreaterThanOrEqualToConstant:200],
+    ]];
+
+    [_tvosTopBarStack addArrangedSubview:_tvosSettingsButton];
+    [_tvosTopBarStack addArrangedSubview:_tvosHelpButton];
+    [_tvosTopBarStack addArrangedSubview:_tvosAddHostButton];
+
+    UILayoutGuide* safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [_tvosTopBar.topAnchor constraintEqualToAnchor:safe.topAnchor constant:12],
+        [_tvosTopBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:60],
+        [_tvosTopBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-60],
+        [_tvosTopBar.heightAnchor constraintEqualToConstant:72],
+
+        [_tvosTopBarStack.leadingAnchor constraintEqualToAnchor:_tvosTopBar.leadingAnchor],
+        [_tvosTopBarStack.trailingAnchor constraintLessThanOrEqualToAnchor:_tvosTopBar.trailingAnchor],
+        [_tvosTopBarStack.centerYAnchor constraintEqualToAnchor:_tvosTopBar.centerYAnchor],
+    ]];
+
+    // Keep overlay controls above the base collection view content.
+    [self.view bringSubviewToFront:_tvosTopBar];
+}
+
+- (void)tvosInstallHostsFocusGuideIfNeeded
+{
+    if (_tvosHostsFocusGuide != nil || _tvosTopBar == nil || self.hostCollectionVC == nil || self.hostCollectionVC.view.superview == nil) {
+        return;
+    }
+
+    _tvosHostsFocusGuide = [[UIFocusGuide alloc] init];
+    [self.view addLayoutGuide:_tvosHostsFocusGuide];
+    // Keep disabled by default. We'll rely on explicit focus requests and natural spatial navigation.
+    // If a future device/OS still traps focus in the top bar, we can enable this as a fallback.
+    _tvosHostsFocusGuide.enabled = NO;
+    _tvosHostsFocusGuide.preferredFocusEnvironments = @[
+        self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view
+    ];
+
+    // Bridge area between the top bar and the hosts grid.
+    [NSLayoutConstraint activateConstraints:@[
+        [_tvosHostsFocusGuide.topAnchor constraintEqualToAnchor:_tvosTopBar.bottomAnchor constant:0],
+        [_tvosHostsFocusGuide.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:0],
+        [_tvosHostsFocusGuide.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:0],
+        [_tvosHostsFocusGuide.bottomAnchor constraintEqualToAnchor:self.hostCollectionVC.view.topAnchor constant:0],
+    ]];
+}
+
+- (void)tvosUpdateHostsTopBarVisibility
+{
+    if (_tvosTopBar == nil) {
+        return;
+    }
+    // Hosts top bar is only visible while browsing Hosts.
+    _tvosTopBar.hidden = _enteredAppView;
+    if (!_tvosTopBar.hidden) {
+        [self.view bringSubviewToFront:_tvosTopBar];
+    }
+}
+
+- (void)tvosRequestFocusToFirstHostIfPossible
+{
+    if (_enteredAppView) {
+        return;
+    }
+    if (_tvosDidAutoFocusHostsThisAppearance) {
+        return;
+    }
+    if (self.hostCollectionVC == nil || self.hostCollectionVC.items.count == 0) {
+        return;
+    }
+    if (self.hostCollectionVC.view.hidden || self.hostCollectionVC.view.window == nil) {
+        return;
+    }
+
+    _tvosDidAutoFocusHostsThisAppearance = YES;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UICollectionView* cv = self.hostCollectionVC.collectionView;
+        if (cv == nil) {
+            return;
+        }
+        [cv layoutIfNeeded];
+
+        NSIndexPath* ip = [NSIndexPath indexPathForItem:0 inSection:0];
+        if ([cv numberOfItemsInSection:0] > 0) {
+            [cv scrollToItemAtIndexPath:ip atScrollPosition:UICollectionViewScrollPositionCenteredVertically animated:NO];
+            [cv layoutIfNeeded];
+        }
+
+        UICollectionViewCell* cell = [cv cellForItemAtIndexPath:ip];
+        id<UIFocusEnvironment> target = cell ?: cv;
+        UIFocusSystem* fs = [UIFocusSystem focusSystemForEnvironment:self.view];
+        if (fs != nil) {
+            [fs requestFocusUpdateToEnvironment:target];
+            [fs updateFocusIfNeeded];
+        } else {
+            [self setNeedsFocusUpdate];
+            [self updateFocusIfNeeded];
+        }
+    });
+}
+#endif
+
 - (void)updateTheme {
     self.view.backgroundColor = [ThemeManager hostViewBackgroundColor];
     self.hostCollectionVC.view.backgroundColor = [ThemeManager hostViewBackgroundColor];
@@ -1739,6 +1950,22 @@ static NSMutableSet* hostList;
     _upButton.tintColor = [ThemeManager appPrimaryColor];
     ((UIButton*)_addHostButton.customView).backgroundColor = GenericUtils.liquidGlassEnabled ? UIColor.clearColor : [ThemeManager appPrimaryColor];
     ((UIButton*)_helpButton.customView).tintColor = [ThemeManager appPrimaryColor];
+
+#if TARGET_OS_TV
+    if (_tvosSettingsButton != nil) {
+        _tvosSettingsButton.tintColor = [ThemeManager appPrimaryColor];
+        _tvosSettingsButton.backgroundColor = [[ThemeManager widgetBackgroundColor] colorWithAlphaComponent:0.85];
+    }
+    if (_tvosHelpButton != nil) {
+        _tvosHelpButton.tintColor = [ThemeManager appPrimaryColor];
+        _tvosHelpButton.backgroundColor = [[ThemeManager widgetBackgroundColor] colorWithAlphaComponent:0.85];
+    }
+    if (_tvosAddHostButton != nil) {
+        _tvosAddHostButton.tintColor = [ThemeManager appPrimaryColor];
+        _tvosAddHostButton.backgroundColor = [[ThemeManager widgetBackgroundColor] colorWithAlphaComponent:0.85];
+    }
+    [self tvosUpdateHostsTopBarVisibility];
+#endif
 
     [self applyNavBarAppearance];
     [self updateTitle];
@@ -1843,6 +2070,10 @@ static NSMutableSet* hostList;
     [self.view addGestureRecognizer:_debugLogsRecognizer];
     
     self.navigationController.navigationBar.titleTextAttributes = [NSDictionary dictionaryWithObject:[UIColor whiteColor] forKey:NSForegroundColorAttributeName];
+
+    // Install the in-content top bar (Settings/Help/Add Host). Keeping focusable items out of the
+    // navigation bar avoids focus traps where the remote can't reach the Hosts grid.
+    [self tvosInstallHostsTopBarIfNeeded];
 #endif
     
     _loadingFrame = [self.storyboard instantiateViewControllerWithIdentifier:@"loadingFrame"];
@@ -2502,6 +2733,12 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
     
     // Reset state first so we can rediscover hosts that were deleted before
     [_discMan resetDiscoveryState];
+
+#if TARGET_OS_TV
+    // Hosts can appear asynchronously after the initial focus decision. When they do,
+    // proactively move focus into the Hosts grid so the remote can immediately navigate.
+    [self tvosRequestFocusToFirstHostIfPossible];
+#endif
 }
 
 + (UIImage*) loadBoxArtForCaching:(TemporaryApp*)app {
@@ -2783,7 +3020,19 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
     // tvOS: Explicitly prefer whichever collection view is currently visible.
     // Without this, focus can end up "stuck" on the navigation bar or nowhere after view toggles.
     if (self.hostCollectionVC != nil && self.hostCollectionVC.view.hidden == NO) {
-        return @[self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view];
+        // When hosts are available, jump straight into the hosts grid.
+        if (self.hostCollectionVC.items.count > 0) {
+            return @[self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view];
+        }
+        // Otherwise, keep focus on the top bar so the user can still navigate (Settings/Help/Add Host)
+        // while discovery is ongoing.
+        if (_tvosSettingsButton != nil && _tvosTopBar != nil && !_tvosTopBar.hidden) {
+            return @[_tvosSettingsButton];
+        }
+        if (_tvosTopBar != nil && !_tvosTopBar.hidden) {
+            return @[_tvosTopBar];
+        }
+        return @[self.view];
     }
     return @[self.collectionView ?: self.view];
 }
@@ -2921,11 +3170,28 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
     self.hostCollectionVC.cellSize = [self getHostCardSize];
     
     if(self.hostCollectionVC.view.superview == nil){
+#if TARGET_OS_TV
+        // Ensure the Hosts top bar exists before laying out the Hosts grid.
+        [self tvosInstallHostsTopBarIfNeeded];
+#endif
         [self.view addSubview:self.hostCollectionVC.view];
         CGFloat leftPadding = [self isIPhone] ? 30 : 0;
         self.hostCollectionVC.view.translatesAutoresizingMaskIntoConstraints = NO;
+
+#if TARGET_OS_TV
+        NSLayoutConstraint* topConstraint;
+        if (_tvosTopBar != nil) {
+            topConstraint = [self.hostCollectionVC.view.topAnchor constraintEqualToAnchor:_tvosTopBar.bottomAnchor constant:20];
+        } else {
+            topConstraint = [self.hostCollectionVC.view.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:0];
+        }
+#endif
         [NSLayoutConstraint activateConstraints:@[
+#if TARGET_OS_TV
+            topConstraint,
+#else
             [self.hostCollectionVC.view.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:0],
+#endif
             [self.hostCollectionVC.view.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:leftPadding],
             [self.hostCollectionVC.view.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:0],
 #if TARGET_OS_TV
@@ -2933,6 +3199,11 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
             [self.hostCollectionVC.view.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:0],
 #endif
         ]];
+
+#if TARGET_OS_TV
+        // Optional bridge to help the focus engine reach the hosts grid when coming from the top bar.
+        [self tvosInstallHostsFocusGuideIfNeeded];
+#endif
     }
 
 }
