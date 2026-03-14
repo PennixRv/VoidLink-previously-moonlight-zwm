@@ -136,6 +136,7 @@ static const CGFloat cellOffsetY = 20;
 #if TARGET_OS_TV
     NSIndexPath* _lastFocusedIndexPath;
     UILongPressGestureRecognizer* _remoteSelectLongPressRecognizer;
+    BOOL _tvosDidRequestInitialFocus;
 #endif
 }
 
@@ -180,6 +181,7 @@ static const CGFloat cellOffsetY = 20;
 
 #if TARGET_OS_TV
     self.collectionView.remembersLastFocusedIndexPath = YES;
+    self.collectionView.allowsSelection = YES;
 
     // tvOS: long-press Select to show host actions (Wake/Remove/etc).
     // We implement this at the collection view level to avoid relying on per-card gesture routing.
@@ -192,6 +194,56 @@ static const CGFloat cellOffsetY = 20;
 
     [self updateTheme];
 }
+
+#if TARGET_OS_TV
+- (NSIndexPath *)indexPathForPreferredFocusedViewInCollectionView:(UICollectionView *)collectionView {
+    // If the focus system asks for a preferred focus target, always pick our last-focused
+    // host card, or fall back to the first host when present.
+    if (_lastFocusedIndexPath != nil && _lastFocusedIndexPath.item < self.items.count) {
+        return _lastFocusedIndexPath;
+    }
+    if (self.items.count > 0) {
+        return [NSIndexPath indexPathForItem:0 inSection:0];
+    }
+    return nil;
+}
+
+- (void)requestInitialFocusIfPossible {
+    if (_tvosDidRequestInitialFocus) {
+        return;
+    }
+    if (self.items.count == 0) {
+        return;
+    }
+    if (self.view.hidden || self.view.window == nil) {
+        return;
+    }
+
+    _tvosDidRequestInitialFocus = YES;
+
+    // Ensure the first cell exists in the view hierarchy before asking the focus engine to move focus.
+    NSIndexPath *ip = [NSIndexPath indexPathForItem:0 inSection:0];
+    [self.collectionView layoutIfNeeded];
+    if ([self.collectionView numberOfItemsInSection:0] > 0) {
+        [self.collectionView scrollToItemAtIndexPath:ip atScrollPosition:UICollectionViewScrollPositionCenteredVertically animated:NO];
+        [self.collectionView layoutIfNeeded];
+    }
+
+    UIViewController *parent = self.parentViewController;
+    if (parent != nil) {
+        [parent setNeedsFocusUpdate];
+        [parent updateFocusIfNeeded];
+
+        if (parent.navigationController != nil) {
+            [parent.navigationController setNeedsFocusUpdate];
+            [parent.navigationController updateFocusIfNeeded];
+        }
+    } else {
+        [self setNeedsFocusUpdate];
+        [self updateFocusIfNeeded];
+    }
+}
+#endif
 
 #if TARGET_OS_TV
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
@@ -296,8 +348,7 @@ static const CGFloat cellOffsetY = 20;
         // immediately navigate with the remote without needing to "wake up" focus manually.
         if (_lastFocusedIndexPath == nil) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self setNeedsFocusUpdate];
-                [self updateFocusIfNeeded];
+                [self requestInitialFocusIfPossible];
             });
         }
 #endif
