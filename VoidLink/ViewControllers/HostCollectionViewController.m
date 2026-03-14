@@ -47,6 +47,13 @@ static const CGFloat cellOffsetY = 20;
 }
 
 #if TARGET_OS_TV
+- (BOOL)canBecomeFocused {
+    // Ensure the cell itself is always focusable. The card view is display-only on tvOS.
+    return YES;
+}
+#endif
+
+#if TARGET_OS_TV
 - (void)applyFocusMotionEffects:(BOOL)focused {
     if (_motionEffectH == nil || _motionEffectV == nil) {
         return;
@@ -150,8 +157,10 @@ static const CGFloat cellOffsetY = 20;
         // _cellSize = CGSizeMake(100, 100);
         _items = [NSMutableArray array];
 
+#if !TARGET_OS_TV
         _collectionViewHeightConstraint = [self.collectionView.heightAnchor constraintEqualToConstant:50];
         _collectionViewHeightConstraint.active = YES;
+#endif
     }
     return self;
 }
@@ -281,6 +290,17 @@ static const CGFloat cellOffsetY = 20;
     if(![self.items containsObject:host]){
         [self.items addObject:host];
         [self.collectionView reloadData];
+
+#if TARGET_OS_TV
+        // If this is the first time we have content, request a focus update so the user can
+        // immediately navigate with the remote without needing to "wake up" focus manually.
+        if (_lastFocusedIndexPath == nil) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self setNeedsFocusUpdate];
+                [self updateFocusIfNeeded];
+            });
+        }
+#endif
     }
 }
 
@@ -319,6 +339,7 @@ static const CGFloat cellOffsetY = 20;
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
 
+#if !TARGET_OS_TV
     CGFloat contentHeight = self.collectionView.collectionViewLayout.collectionViewContentSize.height;
     bool contentExceedsView = contentHeight > self.view.superview.bounds.size.height - self.view.frame.origin.y;
     if(contentExceedsView){
@@ -335,6 +356,12 @@ static const CGFloat cellOffsetY = 20;
     else if([self numberOfRowsInCollectionView] == 2) layout.sectionInset = UIEdgeInsetsMake(17, _horizontalPadding, 0, _horizontalPadding);
     else layout.sectionInset = UIEdgeInsetsMake(10, _horizontalPadding, 0, _horizontalPadding);
     //if(contentExceedsView) layout.sectionInset = UIEdgeInsetsMake(7, _horizontalPadding, 0, _horizontalPadding);
+#else
+    // tvOS: fill the available safe area. Only adjust insets to look good for 1-2 row layouts.
+    if([self numberOfRowsInCollectionView] == 1) layout.sectionInset = UIEdgeInsetsMake(50, _horizontalPadding, 0, _horizontalPadding);
+    else if([self numberOfRowsInCollectionView] == 2) layout.sectionInset = UIEdgeInsetsMake(17, _horizontalPadding, 0, _horizontalPadding);
+    else layout.sectionInset = UIEdgeInsetsMake(10, _horizontalPadding, 0, _horizontalPadding);
+#endif
 }
 
 #pragma mark - UICollectionView DataSource

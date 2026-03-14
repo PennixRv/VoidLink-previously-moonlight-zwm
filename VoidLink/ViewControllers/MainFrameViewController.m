@@ -90,6 +90,7 @@
 #if defined(DEBUG)
     UITapGestureRecognizer* _debugLogsRecognizer;
 #endif
+    UILongPressGestureRecognizer* _appCellLongPressRecognizer;
 #endif
 }
 static NSMutableSet* hostList;
@@ -157,7 +158,7 @@ static NSMutableSet* hostList;
     // tvOS: UINavigationBarAppearance can throw at runtime ("New Bar Appearance API is not supported...").
     // Use legacy title customization.
     self.navigationController.navigationBar.titleTextAttributes = @{
-        NSFontAttributeName: [UIFont systemFontOfSize:20 weight:UIFontWeightMedium],
+        NSFontAttributeName: [UIFont systemFontOfSize:28 weight:UIFontWeightSemibold],
         NSForegroundColorAttributeName: [ThemeManager textColor]
     };
 #else
@@ -360,15 +361,47 @@ static NSMutableSet* hostList;
     _showHiddenApps = NO;
     _selectedHost = nil;
     _sortedAppList = nil;
+
+#if TARGET_OS_TV
+    // Clear any previously displayed app tiles now that we're back on Hosts.
+    [self.collectionView reloadData];
+    [self.collectionView setContentOffset:CGPointZero animated:NO];
+#endif
     
     // [self.collectionView removeFromSuperview]; // necessary for new scroll host view reloading mechanism
     self.hostCollectionVC.view.hidden = NO;
+#if TARGET_OS_TV
+    // tvOS: MainFrameViewController is a UICollectionViewController whose root view is the collection view.
+    // The hosts grid is an overlay subview, so hiding the collection view would also hide the hosts grid
+    // and can break focus. Instead, keep the collection view visible but empty (no selected host).
+    self.collectionView.hidden = NO;
+
+    // Disable app-tile long-press while on the Hosts page to avoid gesture interference.
+    if (_appCellLongPressRecognizer != nil) {
+        _appCellLongPressRecognizer.enabled = NO;
+    }
+
+    // Disable scrolling on the (empty) app collection view while browsing Hosts.
+    self.collectionView.scrollEnabled = NO;
+
+    // Ensure the hosts grid is visually and interactively on top.
+    if (self.hostCollectionVC.view.superview == self.collectionView) {
+        [self.collectionView bringSubviewToFront:self.hostCollectionVC.view];
+    }
+#else
     self.collectionView.hidden = YES;
+#endif
     [self updateTitle];
     self.navigationItem.rightBarButtonItems = @[_helpButton, _addHostButton];
 #if !TARGET_OS_TV
     // iOS-only: keep SWRevealViewController informed about which "page" we're on.
     self.revealViewController.mainFrameIsInHostView = true;
+#endif
+
+#if TARGET_OS_TV
+    // Force focus to move onto the hosts grid after toggling views.
+    [self setNeedsFocusUpdate];
+    [self updateFocusIfNeeded];
 #endif
 }
 
@@ -406,6 +439,14 @@ static NSMutableSet* hostList;
     self.hostCollectionVC.view.hidden = YES;
     self.collectionView.hidden = NO;
     self.collectionView.backgroundColor = [ThemeManager hostViewBackgroundColor];
+
+#if TARGET_OS_TV
+    // Re-enable app list interactions on the Apps page.
+    self.collectionView.scrollEnabled = YES;
+    if (_appCellLongPressRecognizer != nil) {
+        _appCellLongPressRecognizer.enabled = YES;
+    }
+#endif
     //self.view.backgroundColor = [ThemeManager appBackgroundColor];
 
     [self.collectionView setContentOffset:CGPointZero animated:NO];
@@ -421,6 +462,12 @@ static NSMutableSet* hostList;
     // self.navigationController.navigationBar.backgroundColor = [ThemeManager appBackgroundColor];
     // self.navigationController.navigationBar.translucent = NO;
     //[self applyNavBarAppearance:navBarAppearance];
+
+#if TARGET_OS_TV
+    // Force focus to move onto the app tiles after toggling views.
+    [self setNeedsFocusUpdate];
+    [self updateFocusIfNeeded];
+#endif
 }
 
 - (void)appButtonTappedForHost:(TemporaryHost *)host{
@@ -1579,7 +1626,7 @@ static NSMutableSet* hostList;
     bar.barTintColor = [ThemeManager hostViewBackgroundColor];
     bar.tintColor = [ThemeManager appPrimaryColor];
     bar.titleTextAttributes = @{
-        NSFontAttributeName: [UIFont systemFontOfSize:20 weight:UIFontWeightMedium],
+        NSFontAttributeName: [UIFont systemFontOfSize:28 weight:UIFontWeightSemibold],
         NSForegroundColorAttributeName: [ThemeManager textColor],
     };
 #else
@@ -1827,9 +1874,13 @@ static NSMutableSet* hostList;
     self.collectionView.multipleTouchEnabled = NO;
     #else
     // This is the only way to get long press events on a UICollectionViewCell :(
-    UILongPressGestureRecognizer* cellLongPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleCollectionViewLongPress:)];
-    cellLongPress.delaysTouchesBegan = YES;
-    [self.collectionView addGestureRecognizer:cellLongPress];
+    // Keep it disabled while on the Hosts page to avoid gesture/focus interference.
+    _appCellLongPressRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleCollectionViewLongPress:)];
+    _appCellLongPressRecognizer.delaysTouchesBegan = YES;
+    _appCellLongPressRecognizer.allowedPressTypes = @[@(UIPressTypeSelect)];
+    _appCellLongPressRecognizer.minimumPressDuration = 0.6;
+    _appCellLongPressRecognizer.enabled = NO;
+    [self.collectionView addGestureRecognizer:_appCellLongPressRecognizer];
     #endif
 
     [self updateTitle];
@@ -2724,7 +2775,17 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
 
 #if TARGET_OS_TV
 - (BOOL)canBecomeFocused {
-    return YES;
+    // Don't take focus at the view-controller level; let the visible collection view cells own focus.
+    return NO;
+}
+
+- (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
+    // tvOS: Explicitly prefer whichever collection view is currently visible.
+    // Without this, focus can end up "stuck" on the navigation bar or nowhere after view toggles.
+    if (self.hostCollectionVC != nil && self.hostCollectionVC.view.hidden == NO) {
+        return @[self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view];
+    }
+    return @[self.collectionView ?: self.view];
 }
 #endif
 
@@ -2824,8 +2885,18 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
 
 - (CGSize)getHostCardSize{
     CGSize cardSize;
-    if([self isIPhone]) cardSize.height = 0.37*MIN(CGRectGetHeight([[UIScreen mainScreen] bounds]),CGRectGetWidth([[UIScreen mainScreen] bounds]));
-    else cardSize.height = 0.25*MIN(CGRectGetHeight([[UIScreen mainScreen] bounds]),CGRectGetWidth([[UIScreen mainScreen] bounds]));
+    CGFloat shortest = MIN(CGRectGetHeight([[UIScreen mainScreen] bounds]), CGRectGetWidth([[UIScreen mainScreen] bounds]));
+    if ([self isIPhone]) {
+        cardSize.height = 0.37 * shortest;
+    }
+    else {
+#if TARGET_OS_TV
+        // tvOS is viewed from a distance; make host cards slightly larger for readability.
+        cardSize.height = 0.30 * shortest;
+#else
+        cardSize.height = 0.25 * shortest;
+#endif
+    }
     TemporaryHost* dummyHost = [[TemporaryHost alloc] init];
     HostCardView* dummyCard = [[HostCardView alloc] initWithHost:dummyHost];
     cardSize.width = cardSize.height * (dummyCard.size.width/dummyCard.size.height);
@@ -2834,13 +2905,20 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
 }
 
 - (void)initHostCollection{
-    // 初始化 HostCollectionViewController
-    self.hostCollectionVC = [[HostCollectionViewController alloc] init];
+    // Initialize HostCollectionViewController once. Re-creating it on every appearance can leave
+    // orphaned overlay collection views in the hierarchy (breaking focus/remote interaction).
+    if (self.hostCollectionVC == nil) {
+        self.hostCollectionVC = [[HostCollectionViewController alloc] init];
+        self.hostCollectionVC.interItemMinimumSpacing = 25;
+        self.hostCollectionVC.minimumLineSpacing = 25;
+
+        // Add as child controller once.
+        [self addChildViewController:self.hostCollectionVC];
+        [self.hostCollectionVC didMoveToParentViewController:self];
+    }
+
+    // Refresh size each time (tvOS HDMI output mode may change; iPad can rotate).
     self.hostCollectionVC.cellSize = [self getHostCardSize];
-    self.hostCollectionVC.interItemMinimumSpacing = 25;
-    self.hostCollectionVC.minimumLineSpacing = 25;
-    // 添加为子控制器
-    [self addChildViewController:self.hostCollectionVC];
     
     if(self.hostCollectionVC.view.superview == nil){
         [self.view addSubview:self.hostCollectionVC.view];
@@ -2850,11 +2928,12 @@ static NSString* const kVoidLinkTVSafeModeReasonKey = @"VoidLinkTVSafeModeReason
             [self.hostCollectionVC.view.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:0],
             [self.hostCollectionVC.view.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:leftPadding],
             [self.hostCollectionVC.view.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:0],
+#if TARGET_OS_TV
+            // On tvOS, fill the safe area so the focus engine has a stable container to navigate.
+            [self.hostCollectionVC.view.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:0],
+#endif
         ]];
     }
-    
-    // 通知子控制器已添加完成
-    [self.hostCollectionVC didMoveToParentViewController:self];
 
 }
 

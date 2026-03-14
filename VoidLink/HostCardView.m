@@ -269,14 +269,23 @@ static const float REFRESH_CYCLE = 2.0f;
     self.hostIconView.translatesAutoresizingMaskIntoConstraints = NO;
     self.hostNameLabel.text = @"RazerBlade 16";
     self.hostNameLabel.textColor = [UIColor whiteColor]; //theme
+#if TARGET_OS_TV
+    // tvOS is viewed from a distance, so use slightly larger base fonts.
+    self.hostNameLabel.font = [UIFont boldSystemFontOfSize:24*_sizeFactor];
+#else
     self.hostNameLabel.font = [UIFont boldSystemFontOfSize:18*_sizeFactor];
+#endif
     [self addSubview:self.hostNameLabel];
     
     // 在线文字
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(205, 68, 100, 24)];
     self.statusLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.statusLabel.text = [LocalizationHelper localizedStringForKey:@"Online"];
+#if TARGET_OS_TV
+    self.statusLabel.font = [UIFont systemFontOfSize:18*_sizeFactor weight:UIFontWeightMedium];
+#else
     self.statusLabel.font = [UIFont systemFontOfSize:14*_sizeFactor weight:UIFontWeightMedium];
+#endif
     self.statusLabel.textColor = defaultGreen;
     // self.statusLabel.font = [UIFont systemFontOfSize:16*_sizeFactor];
     // 在线状态图标
