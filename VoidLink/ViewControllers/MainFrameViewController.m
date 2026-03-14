@@ -1857,8 +1857,10 @@ static NSMutableSet* hostList;
 
     _tvosHostsFocusGuide = [[UIFocusGuide alloc] init];
     [self.view addLayoutGuide:_tvosHostsFocusGuide];
-    // Keep disabled by default. We'll rely on explicit focus requests and natural spatial navigation.
-    // If a future device/OS still traps focus in the top bar, we can enable this as a fallback.
+    // tvOS: Bridge focus from the top bar into the nested hosts collection view.
+    // Nested scroll views (a collection view embedded inside another collection view controller)
+    // can prevent the focus engine from naturally moving "down" into the hosts grid.
+    // We dynamically enable this guide when hosts are available.
     _tvosHostsFocusGuide.enabled = NO;
     _tvosHostsFocusGuide.preferredFocusEnvironments = @[
         self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view
@@ -1871,6 +1873,8 @@ static NSMutableSet* hostList;
         [_tvosHostsFocusGuide.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:0],
         [_tvosHostsFocusGuide.bottomAnchor constraintEqualToAnchor:self.hostCollectionVC.view.topAnchor constant:0],
     ]];
+
+    [self tvosUpdateHostsFocusGuideState];
 }
 
 - (void)tvosUpdateHostsTopBarVisibility
@@ -1882,6 +1886,28 @@ static NSMutableSet* hostList;
     _tvosTopBar.hidden = _enteredAppView;
     if (!_tvosTopBar.hidden) {
         [self.view bringSubviewToFront:_tvosTopBar];
+    }
+    [self tvosUpdateHostsFocusGuideState];
+}
+
+- (void)tvosUpdateHostsFocusGuideState
+{
+    if (_tvosHostsFocusGuide == nil) {
+        return;
+    }
+
+    BOOL shouldEnable = (!_enteredAppView &&
+                         self.hostCollectionVC != nil &&
+                         self.hostCollectionVC.view.hidden == NO &&
+                         self.hostCollectionVC.view.window != nil &&
+                         self.hostCollectionVC.items.count > 0);
+
+    _tvosHostsFocusGuide.enabled = shouldEnable;
+    if (shouldEnable) {
+        // Prefer the hosts collection view (it will in turn pick the preferred index path).
+        _tvosHostsFocusGuide.preferredFocusEnvironments = @[
+            self.hostCollectionVC.collectionView ?: self.hostCollectionVC.view
+        ];
     }
 }
 
@@ -1899,6 +1925,9 @@ static NSMutableSet* hostList;
     if (self.hostCollectionVC.view.hidden || self.hostCollectionVC.view.window == nil) {
         return;
     }
+
+    // Ensure the focus bridge is enabled before trying to move focus programmatically.
+    [self tvosUpdateHostsFocusGuideState];
 
     _tvosDidAutoFocusHostsThisAppearance = YES;
 
