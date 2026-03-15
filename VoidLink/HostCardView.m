@@ -271,7 +271,7 @@ static const float REFRESH_CYCLE = 2.0f;
     self.hostNameLabel.textColor = [UIColor whiteColor]; //theme
 #if TARGET_OS_TV
     // tvOS is viewed from a distance, so use slightly larger base fonts.
-    self.hostNameLabel.font = [UIFont boldSystemFontOfSize:24*_sizeFactor];
+    self.hostNameLabel.font = [UIFont boldSystemFontOfSize:28*_sizeFactor];
 #else
     self.hostNameLabel.font = [UIFont boldSystemFontOfSize:18*_sizeFactor];
 #endif
@@ -282,7 +282,7 @@ static const float REFRESH_CYCLE = 2.0f;
     self.statusLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.statusLabel.text = [LocalizationHelper localizedStringForKey:@"Online"];
 #if TARGET_OS_TV
-    self.statusLabel.font = [UIFont systemFontOfSize:18*_sizeFactor weight:UIFontWeightMedium];
+    self.statusLabel.font = [UIFont systemFontOfSize:20*_sizeFactor weight:UIFontWeightMedium];
 #else
     self.statusLabel.font = [UIFont systemFontOfSize:14*_sizeFactor weight:UIFontWeightMedium];
 #endif
