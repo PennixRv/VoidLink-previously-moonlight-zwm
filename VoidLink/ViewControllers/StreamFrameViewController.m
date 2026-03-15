@@ -810,10 +810,18 @@
 
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [weakSelf tvosCheckOutputModeAndMaybeWarn];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+        [strongSelf tvosCheckOutputModeAndMaybeWarn];
     });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [weakSelf tvosCheckOutputModeAndMaybeWarn];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+        [strongSelf tvosCheckOutputModeAndMaybeWarn];
     });
 }
 
@@ -854,13 +862,14 @@
     if (!_settings.statsOverlayEnabled) {
         __weak typeof(self) weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (weakSelf == nil) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf == nil) {
                 return;
             }
-            if (weakSelf->_overlayView != nil &&
-                weakSelf->_tvosOutputModeMismatchWarningText != nil &&
-                [weakSelf->_overlayView.text isEqualToString:weakSelf->_tvosOutputModeMismatchWarningText]) {
-                [weakSelf updateOverlayText:nil];
+            if (strongSelf->_overlayView != nil &&
+                strongSelf->_tvosOutputModeMismatchWarningText != nil &&
+                [strongSelf->_overlayView.text isEqualToString:strongSelf->_tvosOutputModeMismatchWarningText]) {
+                [strongSelf updateOverlayText:nil];
             }
         });
     }
