@@ -15,6 +15,7 @@
 #import "DataManager.h"
 
 #import <VideoToolbox/VideoToolbox.h>
+#import <os/lock.h>
 
 #if !TARGET_OS_TV
 #define SDL_MAIN_HANDLED
@@ -58,16 +59,25 @@ static video_stats_t lastVideoStats;
 	static bool useSystemAudioEngine;
 	static bool audioSessionInterrupted;
 	static AVAudioEngine *audioEngine;
-static AVAudioPlayerNode *audioPlayerNode;
-static AVAudioPCMBuffer *pcmBuffer;
-static AVAudioFormat *audioFormat;
+	static AVAudioPlayerNode *audioPlayerNode;
+	static AVAudioFormat *audioFormat;
 
-static bool muteInBackground;
-static bool fullColorRange;
+	// AVAudioEngine output: avoid per-frame buffer allocation by pooling PCM buffers.
+	// This reduces CPU overhead and allocator churn, especially at high FPS/bitrate streams.
+	static dispatch_semaphore_t audioPcmBufferPoolSemaphore;
+	static NSMutableArray<AVAudioPCMBuffer*>* audioPcmBufferPool;
+	static os_unfair_lock audioPcmBufferPoolLock = OS_UNFAIR_LOCK_INIT;
+	static uint32_t audioPcmBufferFrameCapacity;
 
-static VideoDecoderRenderer* renderer;
+	static bool muteInBackground;
+	static bool fullColorRange;
 
-static BandwidthTracker *bwTracker;
+	static VideoDecoderRenderer* renderer;
+
+	static BandwidthTracker *bwTracker;
+
+	// Forward decls
+	static void AudioEngineInit(int sampleRate, int channelCount, uint32_t framesPerBuffer);
 
 int DrDecoderSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags)
 {
@@ -307,13 +317,13 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
 	    useSystemAudioEngine = true;
 	#endif
 
-	    // Choose exactly one output pipeline.
-	    // Stable-first: stereo uses the system audio engine; multichannel uses SDL output.
-	    if (useSystemAudioEngine) {
-	        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
-	    } else {
+		    // Choose exactly one output pipeline.
+		    // Stable-first: stereo uses the system audio engine; multichannel uses SDL output.
+		    if (useSystemAudioEngine) {
+		        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount, (uint32_t)audioConfig.samplesPerFrame);
+		    } else {
 #if !TARGET_OS_TV
-	        SDL_AudioSpec want, have;
+		        SDL_AudioSpec want, have;
 
 	        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
 	            Log(LOG_E, @"Failed to initialize audio subsystem: %s\n", SDL_GetError());
@@ -338,19 +348,19 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, v
 	        // Start playback
 	        SDL_PauseAudioDevice(audioDevice, 0);
 #else
-	        // tvOS should never get here because we force the system audio engine above.
-	        // Keep a defensive fallback to preserve behavior if that assumption changes.
-	        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
+		        // tvOS should never get here because we force the system audio engine above.
+		        // Keep a defensive fallback to preserve behavior if that assumption changes.
+		        AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount, (uint32_t)audioConfig.samplesPerFrame);
 #endif
-	    }
+		    }
 
 	    return 0;
 	}
 
-void ArCleanup(void)
-{
-	    if (opusDecoder != NULL) {
-	        opus_multistream_decoder_destroy(opusDecoder);
+	void ArCleanup(void)
+	{
+		    if (opusDecoder != NULL) {
+		        opus_multistream_decoder_destroy(opusDecoder);
 	        opusDecoder = NULL;
 	    }
 	    
@@ -370,16 +380,21 @@ void ArCleanup(void)
         [audioPlayerNode stop];
         audioPlayerNode = nil;
     }
-    if (audioEngine != nil) {
-        [audioEngine stop];
-        audioEngine = nil;
-	    }
-	    audioFormat = nil;
+	    if (audioEngine != nil) {
+	        [audioEngine stop];
+	        audioEngine = nil;
+		    }
+		    audioFormat = nil;
+
+	    // Reset pooled buffers (safe to nil out; ARC will reclaim when no longer referenced by the engine).
+	    audioPcmBufferPoolSemaphore = nil;
+	    audioPcmBufferPool = nil;
+	    audioPcmBufferFrameCapacity = 0;
 
 #if !TARGET_OS_TV
-	    if (sdlAudioSubsystemInitialized) {
-	        SDL_QuitSubSystem(SDL_INIT_AUDIO);
-	        sdlAudioSubsystemInitialized = false;
+		    if (sdlAudioSubsystemInitialized) {
+		        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+		        sdlAudioSubsystemInitialized = false;
 	    }
 #endif
 	}
@@ -395,26 +410,85 @@ void ArCleanup(void)
     muteInBackground = mute;
 }
 
-+ (void)setUseSystemAudioEngine:(bool)useSysAudioEngine{
-    useSystemAudioEngine = useSysAudioEngine;
-}
+	+ (void)setUseSystemAudioEngine:(bool)useSysAudioEngine{
+	    useSystemAudioEngine = useSysAudioEngine;
+	}
 
-void AudioEngineInit(int sampleRate, int channelCount) {
-    
-    if (audioPlayerNode != nil) {
-        [audioPlayerNode stop];
-        audioPlayerNode = nil;
+	static void AudioPcmBufferPoolInitIfPossible(uint32_t frameCapacity) {
+	    // Keep a small pool to avoid per-frame allocations.
+	    // We keep it conservative to avoid excess memory usage and reduce risk.
+	    static const NSInteger kPoolSize = 8;
+
+	    if (audioFormat == nil || frameCapacity == 0) {
+	        return;
+	    }
+	    audioPcmBufferFrameCapacity = frameCapacity;
+	    audioPcmBufferPool = [[NSMutableArray alloc] initWithCapacity:kPoolSize];
+	    for (NSInteger i = 0; i < kPoolSize; i++) {
+	        AVAudioPCMBuffer* b = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audioFormat frameCapacity:frameCapacity];
+	        if (b != nil) {
+	            [audioPcmBufferPool addObject:b];
+	        }
+	    }
+	    audioPcmBufferPoolSemaphore = dispatch_semaphore_create(audioPcmBufferPool.count);
+	}
+
+	static AVAudioPCMBuffer* AudioPcmBufferPoolTryAcquire(void) {
+	    if (audioPcmBufferPoolSemaphore == nil || audioPcmBufferPool == nil) {
+	        return nil;
+	    }
+	    if (dispatch_semaphore_wait(audioPcmBufferPoolSemaphore, DISPATCH_TIME_NOW) != 0) {
+	        return nil;
+	    }
+
+	    AVAudioPCMBuffer* b = nil;
+	    os_unfair_lock_lock(&audioPcmBufferPoolLock);
+	    if (audioPcmBufferPool.count > 0) {
+	        b = [audioPcmBufferPool lastObject];
+	        [audioPcmBufferPool removeLastObject];
+	    }
+	    os_unfair_lock_unlock(&audioPcmBufferPoolLock);
+
+	    if (b == nil) {
+	        dispatch_semaphore_signal(audioPcmBufferPoolSemaphore);
+	    }
+	    return b;
+	}
+
+	static void AudioPcmBufferPoolRelease(AVAudioPCMBuffer* b) {
+	    if (b == nil) {
+	        return;
+	    }
+	    if (audioPcmBufferPoolSemaphore == nil || audioPcmBufferPool == nil) {
+	        return;
+	    }
+	    os_unfair_lock_lock(&audioPcmBufferPoolLock);
+	    [audioPcmBufferPool addObject:b];
+	    os_unfair_lock_unlock(&audioPcmBufferPoolLock);
+	    dispatch_semaphore_signal(audioPcmBufferPoolSemaphore);
+	}
+
+	void AudioEngineInit(int sampleRate, int channelCount, uint32_t framesPerBuffer) {
+	    
+	    if (audioPlayerNode != nil) {
+	        [audioPlayerNode stop];
+	        audioPlayerNode = nil;
     }
     if (audioEngine != nil) {
         [audioEngine stop];
         audioEngine = nil;
     }
-    audioFormat = nil;
+	    audioFormat = nil;
 
-    audioEngine = [[AVAudioEngine alloc] init];
-    audioPlayerNode = [[AVAudioPlayerNode alloc] init];
-    
-    [audioEngine attachNode:audioPlayerNode];
+	    // Reset the PCM buffer pool; it will be recreated after we establish audioFormat.
+	    audioPcmBufferPoolSemaphore = nil;
+	    audioPcmBufferPool = nil;
+	    audioPcmBufferFrameCapacity = 0;
+
+	    audioEngine = [[AVAudioEngine alloc] init];
+	    audioPlayerNode = [[AVAudioPlayerNode alloc] init];
+	    
+	    [audioEngine attachNode:audioPlayerNode];
         
     AVAudioChannelLayout *layout;
     
@@ -444,7 +518,7 @@ void AudioEngineInit(int sampleRate, int channelCount) {
             break;
     }
     
-    if(!audioFormat) return;
+	    if(!audioFormat) return;
     
     AVAudioFormat *mixerFormat = [audioEngine.mainMixerNode outputFormatForBus:0];
     AVAudioFormat *outputFormat = [audioEngine.outputNode inputFormatForBus:0];
@@ -459,8 +533,11 @@ void AudioEngineInit(int sampleRate, int channelCount) {
         NSLog(@"AudioEngine start error: %@", err);
     }
     
-    [audioPlayerNode play];
-}
+	    [audioPlayerNode play];
+
+	    // Initialize pooled buffers after the format is known.
+	    AudioPcmBufferPoolInitIfPossible(framesPerBuffer);
+	}
 
 void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
 {
@@ -481,28 +558,66 @@ void ArDecodeAndPlaySample(char* sampleData, int sampleLength)
                                               audioConfig.samplesPerFrame,
                                               0);
     
-    if (decodeLen > 0) {
-        // Provide backpressure on the queue to ensure too many frames don't build up
-        // in SDL's audio queue.
-        
-        float* fbuf = (float*)audioBuffer;
-        
-	        if(useSystemAudioEngine){
-	            // 创建 AVAudioPCMBuffer
-	            AVAudioFrameCount frameCount = decodeLen;
-	            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audioFormat frameCapacity:frameCount];
-	            buffer.frameLength = frameCount;
-            
-            // 拷贝数据到 buffer
-            for (int ch = 0; ch < audioConfig.channelCount; ch++) {
-                float *dst = buffer.floatChannelData[ch];
-                for (int i = 0; i < decodeLen; i++) {
-                    dst[i] = fbuf[i * audioConfig.channelCount + ch] * volume; // 非交错数据
-                }
-            }
-	            // 播放
-	            if(!audioSessionInterrupted) [audioPlayerNode scheduleBuffer:buffer completionHandler:nil];
-	        }
+	    if (decodeLen > 0) {
+	        // Provide backpressure on the queue to ensure too many frames don't build up
+	        // in SDL's audio queue.
+	        
+	        float* fbuf = (float*)audioBuffer;
+	        
+		        if(useSystemAudioEngine){
+		            if (audioPlayerNode == nil || audioFormat == nil) {
+		                return;
+		            }
+
+		            AVAudioFrameCount frameCount = (AVAudioFrameCount)decodeLen;
+		            BOOL fromPool = NO;
+		            AVAudioPCMBuffer *buffer = AudioPcmBufferPoolTryAcquire();
+		            if (buffer != nil) {
+		                fromPool = YES;
+		            }
+		            // If the pooled buffer is too small (unexpected), return it and fall back to allocation.
+		            if (buffer != nil && buffer.frameCapacity < frameCount) {
+		                if (fromPool) {
+		                    AudioPcmBufferPoolRelease(buffer);
+		                }
+		                fromPool = NO;
+		                buffer = nil;
+		            }
+		            if (buffer == nil) {
+		                // Fallback: allocate on demand if the pool is unavailable or exhausted.
+		                buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audioFormat frameCapacity:frameCount];
+		            }
+		            if (buffer == nil || buffer.floatChannelData == nil) {
+		                if (fromPool && buffer != nil) {
+		                    AudioPcmBufferPoolRelease(buffer);
+		                }
+		                return;
+		            }
+		            buffer.frameLength = frameCount;
+	            
+	            // 拷贝数据到 buffer
+	            for (int ch = 0; ch < audioConfig.channelCount; ch++) {
+	                float *dst = buffer.floatChannelData[ch];
+	                for (int i = 0; i < decodeLen; i++) {
+	                    dst[i] = fbuf[i * audioConfig.channelCount + ch] * volume; // 非交错数据
+	                }
+	            }
+
+		            // 播放 (make sure we always return pooled buffers, even on interruption).
+		            if (audioSessionInterrupted) {
+		                if (fromPool) {
+		                    AudioPcmBufferPoolRelease(buffer);
+		                }
+		                return;
+		            }
+		            if (fromPool) {
+		                [audioPlayerNode scheduleBuffer:buffer completionHandler:^{
+		                    AudioPcmBufferPoolRelease(buffer);
+		                }];
+		            } else {
+		                [audioPlayerNode scheduleBuffer:buffer completionHandler:nil];
+		            }
+		        }
 
 #if !TARGET_OS_TV
 	        else{
@@ -626,10 +741,10 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
                 [audioEngine stop];
             }
             break;
-        case AVAudioSessionInterruptionTypeEnded:
-            if (useSystemAudioEngine) {
-                AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount);
-            }
+	        case AVAudioSessionInterruptionTypeEnded:
+	            if (useSystemAudioEngine) {
+	                AudioEngineInit(audioConfig.sampleRate, audioConfig.channelCount, (uint32_t)audioConfig.samplesPerFrame);
+	            }
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5*NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 audioSessionInterrupted = false;
             });

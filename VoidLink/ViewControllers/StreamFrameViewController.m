@@ -74,6 +74,10 @@
     UIButton *_tvosResumeButton;
     UIButton *_tvosStatsButton;
     UIButton *_tvosDisconnectButton;
+
+    BOOL _tvosDidScheduleOutputModeChecks;
+    BOOL _tvosDidShowOutputModeMismatchWarning;
+    NSString *_tvosOutputModeMismatchWarningText;
 #endif
     uint16_t overlayLevel;
     UILabel *_stageLabel;
@@ -785,6 +789,81 @@
         usleep(50 * 1000);
         LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
     });
+}
+#endif
+
+#if TARGET_OS_TV
+- (void)tvosScheduleOutputModeMismatchChecksIfNeeded {
+    if (_tvosDidScheduleOutputModeChecks) {
+        return;
+    }
+    if (self.streamConfig == nil) {
+        return;
+    }
+
+    int desiredFps = self.streamConfig.frameRate;
+    if (desiredFps <= 60) {
+        return;
+    }
+
+    _tvosDidScheduleOutputModeChecks = YES;
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf tvosCheckOutputModeAndMaybeWarn];
+    });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf tvosCheckOutputModeAndMaybeWarn];
+    });
+}
+
+- (void)tvosCheckOutputModeAndMaybeWarn {
+    if (_tvosDidShowOutputModeMismatchWarning) {
+        return;
+    }
+    if (self.streamConfig == nil) {
+        return;
+    }
+
+    int desiredFps = self.streamConfig.frameRate;
+    if (desiredFps <= 60) {
+        return;
+    }
+
+    UIScreen *screen = [UIScreen mainScreen];
+    NSInteger maxHz = screen.maximumFramesPerSecond;
+    if (maxHz <= 0) {
+        return;
+    }
+
+    // If the HDMI output mode didn't switch close to the desired FPS, the stream can still run at 120,
+    // but it may be paced/dropped by the current output mode. Don't clamp; just inform once.
+    if (maxHz + 5 >= desiredFps) {
+        return;
+    }
+
+    _tvosDidShowOutputModeMismatchWarning = YES;
+
+    NSString *msg = [LocalizationHelper localizedStringForKey:
+                     @"Output: %ld Hz. Stream: %d FPS.\nTip: enable Match Frame Rate in tvOS and ensure your TV/HDMI chain supports %d Hz.",
+                     (long)maxHz, desiredFps, desiredFps];
+    _tvosOutputModeMismatchWarningText = msg;
+    [self updateOverlayText:msg];
+
+    // If the stats overlay isn't enabled, hide the transient message after a short delay to reduce clutter.
+    if (!_settings.statsOverlayEnabled) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (weakSelf == nil) {
+                return;
+            }
+            if (weakSelf->_overlayView != nil &&
+                weakSelf->_tvosOutputModeMismatchWarningText != nil &&
+                [weakSelf->_overlayView.text isEqualToString:weakSelf->_tvosOutputModeMismatchWarningText]) {
+                [weakSelf updateOverlayText:nil];
+            }
+        });
+    }
 }
 #endif
 
@@ -1787,13 +1866,20 @@
                 dynamicRange = 0; // SDR
             }
             
-AVDisplayCriteria* displayCriteria = [[AVDisplayCriteria alloc] initWithRefreshRate:(float)self.streamConfig.frameRate
-                                                                  videoDynamicRange:dynamicRange];
-displayManager.preferredDisplayCriteria = displayCriteria;
+	    AVDisplayCriteria* displayCriteria = [[AVDisplayCriteria alloc] initWithRefreshRate:(float)self.streamConfig.frameRate
+	                                                                  videoDynamicRange:dynamicRange];
+	displayManager.preferredDisplayCriteria = displayCriteria;
+
+            // Check whether the HDMI output mode actually switches to match the requested FPS.
+            // This is especially important for 120 FPS modes, where the output may stay at 60 Hz.
+            [self tvosScheduleOutputModeMismatchChecksIfNeeded];
         }
         else {
             // Switch back to the default display mode
             displayManager.preferredDisplayCriteria = nil;
+            _tvosDidScheduleOutputModeChecks = NO;
+            _tvosDidShowOutputModeMismatchWarning = NO;
+            _tvosOutputModeMismatchWarningText = nil;
         }
     }
 #endif
